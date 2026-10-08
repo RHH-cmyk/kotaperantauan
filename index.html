@@ -3,62 +3,102 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
 <title>Kota Perantauan</title>
 
 <style>
+
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -webkit-touch-callout: none;
 }
 
-html, body {
+html,
+body {
     width: 100%;
     height: 100%;
     overflow: hidden;
     background: #111;
+
     touch-action: none;
-    font-family: Arial, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 #game {
     display: block;
     width: 100%;
     height: 100%;
+
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 #info {
     position: fixed;
     top: 15px;
     left: 15px;
+
     padding: 10px 14px;
+
     background: rgba(0,0,0,.55);
     color: white;
+
     border-radius: 10px;
+
     font-size: 14px;
+
     z-index: 10;
+
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 #controls {
     position: fixed;
+
     left: 25px;
     bottom: 25px;
+
     width: 150px;
     height: 150px;
+
     z-index: 10;
+
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .btn {
     position: absolute;
+
     width: 50px;
     height: 50px;
+
     border: 0;
     border-radius: 12px;
+
     background: rgba(255,255,255,.25);
+
     color: white;
+
     font-size: 23px;
     font-weight: bold;
+
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .btn:active {
@@ -84,6 +124,7 @@ html, body {
     right: 0;
     top: 50px;
 }
+
 </style>
 </head>
 
@@ -96,31 +137,57 @@ html, body {
 </div>
 
 <div id="controls">
-    <button class="btn" id="up">▲</button>
-    <button class="btn" id="down">▼</button>
-    <button class="btn" id="left">◀</button>
-    <button class="btn" id="right">▶</button>
+
+    <button class="btn" id="up">
+        ▲
+    </button>
+
+    <button class="btn" id="down">
+        ▼
+    </button>
+
+    <button class="btn" id="left">
+        ◀
+    </button>
+
+    <button class="btn" id="right">
+        ▶
+    </button>
+
 </div>
 
 <script>
+
 const canvas = document.getElementById("game");
+
 const ctx = canvas.getContext("2d");
 
 const playerImage = new Image();
+
 playerImage.src = "player.png";
 
 let width = 0;
 let height = 0;
 
+
 function resize() {
+
     width = canvas.width = window.innerWidth;
+
     height = canvas.height = window.innerHeight;
+
 }
 
-window.addEventListener("resize", resize);
+window.addEventListener(
+    "resize",
+    resize
+);
+
 resize();
 
+
 const player = {
+
     x: 600,
     y: 450,
 
@@ -135,93 +202,177 @@ const player = {
     frameTimer: 0,
 
     moving: false
+
 };
 
-/*
-ROW SPRITE:
-
-0 = DEPAN
-1 = KIRI
-2 = BELAKANG
-3 = KANAN
-
-8 FRAME PER ARAH
-*/
 
 const keys = {
+
     up: false,
     down: false,
     left: false,
     right: false
+
 };
+
 
 function setupButton(id, direction) {
 
-    const button = document.getElementById(id);
+    const button =
+        document.getElementById(id);
 
-    button.addEventListener("pointerdown", function(e) {
-        e.preventDefault();
-        keys[direction] = true;
-    });
 
-    button.addEventListener("pointerup", function(e) {
-        e.preventDefault();
-        keys[direction] = false;
-    });
+    button.addEventListener(
+        "pointerdown",
+        function(e) {
 
-    button.addEventListener("pointercancel", function() {
-        keys[direction] = false;
-    });
+            e.preventDefault();
 
-    button.addEventListener("pointerleave", function() {
-        keys[direction] = false;
-    });
+            keys[direction] = true;
+
+        }
+    );
+
+
+    button.addEventListener(
+        "pointerup",
+        function(e) {
+
+            e.preventDefault();
+
+            keys[direction] = false;
+
+        }
+    );
+
+
+    button.addEventListener(
+        "pointercancel",
+        function() {
+
+            keys[direction] = false;
+
+        }
+    );
+
+
+    button.addEventListener(
+        "pointerleave",
+        function() {
+
+            keys[direction] = false;
+
+        }
+    );
+
 }
 
+
 setupButton("up", "up");
+
 setupButton("down", "down");
+
 setupButton("left", "left");
+
 setupButton("right", "right");
 
-window.addEventListener("keydown", function(e) {
 
-    if (e.key === "ArrowUp" || e.key === "w") {
-        keys.up = true;
+window.addEventListener(
+    "keydown",
+    function(e) {
+
+        if (
+            e.key === "ArrowUp" ||
+            e.key === "w"
+        ) {
+
+            keys.up = true;
+
+        }
+
+
+        if (
+            e.key === "ArrowDown" ||
+            e.key === "s"
+        ) {
+
+            keys.down = true;
+
+        }
+
+
+        if (
+            e.key === "ArrowLeft" ||
+            e.key === "a"
+        ) {
+
+            keys.left = true;
+
+        }
+
+
+        if (
+            e.key === "ArrowRight" ||
+            e.key === "d"
+        ) {
+
+            keys.right = true;
+
+        }
+
     }
+);
 
-    if (e.key === "ArrowDown" || e.key === "s") {
-        keys.down = true;
+
+window.addEventListener(
+    "keyup",
+    function(e) {
+
+        if (
+            e.key === "ArrowUp" ||
+            e.key === "w"
+        ) {
+
+            keys.up = false;
+
+        }
+
+
+        if (
+            e.key === "ArrowDown" ||
+            e.key === "s"
+        ) {
+
+            keys.down = false;
+
+        }
+
+
+        if (
+            e.key === "ArrowLeft" ||
+            e.key === "a"
+        ) {
+
+            keys.left = false;
+
+        }
+
+
+        if (
+            e.key === "ArrowRight" ||
+            e.key === "d"
+        ) {
+
+            keys.right = false;
+
+        }
+
     }
+);
 
-    if (e.key === "ArrowLeft" || e.key === "a") {
-        keys.left = true;
-    }
-
-    if (e.key === "ArrowRight" || e.key === "d") {
-        keys.right = true;
-    }
-});
-
-window.addEventListener("keyup", function(e) {
-
-    if (e.key === "ArrowUp" || e.key === "w") {
-        keys.up = false;
-    }
-
-    if (e.key === "ArrowDown" || e.key === "s") {
-        keys.down = false;
-    }
-
-    if (e.key === "ArrowLeft" || e.key === "a") {
-        keys.left = false;
-    }
-
-    if (e.key === "ArrowRight" || e.key === "d") {
-        keys.right = false;
-    }
-});
 
 const buildings = [
+
     {
         x: 100,
         y: 100,
@@ -229,6 +380,7 @@ const buildings = [
         height: 140,
         name: "KOS"
     },
+
     {
         x: 500,
         y: 100,
@@ -236,6 +388,7 @@ const buildings = [
         height: 140,
         name: "TOKO"
     },
+
     {
         x: 900,
         y: 100,
@@ -243,6 +396,7 @@ const buildings = [
         height: 140,
         name: "WARUNG"
     },
+
     {
         x: 100,
         y: 650,
@@ -250,6 +404,7 @@ const buildings = [
         height: 140,
         name: "RUMAH"
     },
+
     {
         x: 500,
         y: 650,
@@ -257,6 +412,7 @@ const buildings = [
         height: 140,
         name: "KANTOR"
     },
+
     {
         x: 900,
         y: 650,
@@ -264,56 +420,120 @@ const buildings = [
         height: 140,
         name: "BENGKEL"
     }
+
 ];
+
 
 function update() {
 
     let dx = 0;
+
     let dy = 0;
 
-    if (keys.up) dy -= 1;
-    if (keys.down) dy += 1;
-    if (keys.left) dx -= 1;
-    if (keys.right) dx += 1;
 
-    player.moving = dx !== 0 || dy !== 0;
+    if (keys.up) {
+
+        dy -= 1;
+
+    }
+
+
+    if (keys.down) {
+
+        dy += 1;
+
+    }
+
+
+    if (keys.left) {
+
+        dx -= 1;
+
+    }
+
+
+    if (keys.right) {
+
+        dx += 1;
+
+    }
+
+
+    player.moving =
+        dx !== 0 ||
+        dy !== 0;
+
 
     if (!player.moving) {
+
         player.frame = 0;
+
         player.frameTimer = 0;
+
         return;
+
     }
 
-    const length = Math.sqrt(dx * dx + dy * dy);
+
+    const length =
+        Math.sqrt(
+            dx * dx +
+            dy * dy
+        );
+
 
     dx /= length;
+
     dy /= length;
 
-    player.x += dx * player.speed;
-    player.y += dy * player.speed;
 
-    /*
-    TENTUKAN ARAH SPRITE
-    */
+    player.x +=
+        dx * player.speed;
 
-    if (dy > 0 && Math.abs(dy) >= Math.abs(dx)) {
+
+    player.y +=
+        dy * player.speed;
+
+
+    if (
+        dy > 0 &&
+        Math.abs(dy) >= Math.abs(dx)
+    ) {
+
         player.direction = 0;
-    }
-    else if (dx < 0 && Math.abs(dx) > Math.abs(dy)) {
-        player.direction = 1;
-    }
-    else if (dy < 0 && Math.abs(dy) >= Math.abs(dx)) {
-        player.direction = 2;
-    }
-    else if (dx > 0 && Math.abs(dx) > Math.abs(dy)) {
-        player.direction = 3;
+
     }
 
-    /*
-    ANIMASI JALAN
-    */
+    else if (
+        dx < 0 &&
+        Math.abs(dx) > Math.abs(dy)
+    ) {
+
+        player.direction = 1;
+
+    }
+
+    else if (
+        dy < 0 &&
+        Math.abs(dy) >= Math.abs(dx)
+    ) {
+
+        player.direction = 2;
+
+    }
+
+    else if (
+        dx > 0 &&
+        Math.abs(dx) > Math.abs(dy)
+    ) {
+
+        player.direction = 3;
+
+    }
+
 
     player.frameTimer++;
+
 
     if (player.frameTimer >= 7) {
 
@@ -321,25 +541,57 @@ function update() {
 
         player.frame++;
 
+
         if (player.frame >= 8) {
+
             player.frame = 0;
+
         }
+
     }
 
-    /*
-    BATAS DUNIA
-    */
 
-    player.x = Math.max(40, Math.min(1160, player.x));
-    player.y = Math.max(40, Math.min(880, player.y));
+    player.x =
+        Math.max(
+            40,
+            Math.min(
+                1160,
+                player.x
+            )
+        );
+
+
+    player.y =
+        Math.max(
+            40,
+            Math.min(
+                880,
+                player.y
+            )
+        );
+
 }
 
-function drawBuilding(building, cameraX, cameraY) {
 
-    const x = building.x - cameraX;
-    const y = building.y - cameraY;
+function drawBuilding(
+    building,
+    cameraX,
+    cameraY
+) {
+
+    const x =
+        building.x -
+        cameraX;
+
+
+    const y =
+        building.y -
+        cameraY;
+
 
     ctx.fillStyle = "#d2d2d2";
+
+
     ctx.fillRect(
         x,
         y,
@@ -347,7 +599,10 @@ function drawBuilding(building, cameraX, cameraY) {
         building.height
     );
 
+
     ctx.fillStyle = "#555";
+
+
     ctx.fillRect(
         x,
         y,
@@ -355,26 +610,42 @@ function drawBuilding(building, cameraX, cameraY) {
         35
     );
 
+
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 20px Arial";
+
+    ctx.font =
+        "bold 20px Arial";
+
     ctx.textAlign = "center";
+
 
     ctx.fillText(
         building.name,
-        x + building.width / 2,
+        x +
+        building.width / 2,
         y + 24
     );
 
+
     ctx.fillStyle = "#777";
 
+
     ctx.fillRect(
-        x + building.width / 2 - 25,
-        y + building.height - 55,
+        x +
+        building.width / 2 -
+        25,
+
+        y +
+        building.height -
+        55,
+
         50,
         55
     );
 
+
     ctx.fillStyle = "#9bd3ff";
+
 
     ctx.fillRect(
         x + 25,
@@ -383,63 +654,94 @@ function drawBuilding(building, cameraX, cameraY) {
         45
     );
 
+
     ctx.fillRect(
-        x + building.width - 80,
+        x +
+        building.width -
+        80,
+
         y + 55,
+
         55,
         45
     );
+
 }
 
-function drawPlayer(cameraX, cameraY) {
 
-    if (!playerImage.complete) {
+function drawPlayer(
+    cameraX,
+    cameraY
+) {
+
+    if (
+        !playerImage.complete
+    ) {
+
         return;
+
     }
 
-    /*
-    SPRITE SHEET
-    1536 × 1536
-
-    8 kolom = 192 px
-    4 baris  = 384 px
-    */
 
     const sourceWidth = 192;
+
     const sourceHeight = 384;
 
-    const sourceX = player.frame * sourceWidth;
-    const sourceY = player.direction * sourceHeight;
+
+    const sourceX =
+        player.frame *
+        sourceWidth;
+
+
+    const sourceY =
+        player.direction *
+        sourceHeight;
+
 
     const screenX =
         player.x -
         cameraX -
         player.width / 2;
 
+
     const screenY =
         player.y -
         cameraY -
         player.height;
 
+
     ctx.drawImage(
+
         playerImage,
 
         sourceX,
         sourceY,
+
         sourceWidth,
         sourceHeight,
 
         screenX,
         screenY,
+
         player.width,
         player.height
+
     );
+
 }
+
 
 function draw() {
 
-    const cameraX = player.x - width / 2;
-    const cameraY = player.y - height / 2;
+    const cameraX =
+        player.x -
+        width / 2;
+
+
+    const cameraY =
+        player.y -
+        height / 2;
+
 
     ctx.clearRect(
         0,
@@ -448,11 +750,10 @@ function draw() {
         height
     );
 
-    /*
-    TANAH
-    */
 
-    ctx.fillStyle = "#72a95b";
+    ctx.fillStyle =
+        "#72a95b";
+
 
     ctx.fillRect(
         0,
@@ -461,89 +762,106 @@ function draw() {
         height
     );
 
-    /*
-    JALAN
-    */
 
-    ctx.fillStyle = "#555";
+    ctx.fillStyle =
+        "#555";
+
 
     ctx.fillRect(
         0,
-        350 - cameraY,
+        350 -
+        cameraY,
         width,
         130
     );
 
+
     ctx.fillRect(
-        390 - cameraX,
+        390 -
+        cameraX,
         0,
         130,
         height
     );
 
-    /*
-    GARIS JALAN
-    */
 
-    ctx.strokeStyle = "#ddd";
+    ctx.strokeStyle =
+        "#ddd";
+
+
     ctx.lineWidth = 4;
+
 
     ctx.setLineDash([
         25,
         20
     ]);
 
+
     ctx.beginPath();
+
 
     ctx.moveTo(
         0,
-        415 - cameraY
+        415 -
+        cameraY
     );
+
 
     ctx.lineTo(
         width,
-        415 - cameraY
+        415 -
+        cameraY
     );
 
+
     ctx.stroke();
+
 
     ctx.beginPath();
 
+
     ctx.moveTo(
-        455 - cameraX,
+        455 -
+        cameraX,
         0
     );
 
+
     ctx.lineTo(
-        455 - cameraX,
+        455 -
+        cameraX,
         height
     );
 
+
     ctx.stroke();
+
 
     ctx.setLineDash([]);
 
-    /*
-    BANGUNAN
-    */
 
-    for (const building of buildings) {
+    for (
+        const building
+        of buildings
+    ) {
+
         drawBuilding(
             building,
             cameraX,
             cameraY
         );
+
     }
 
-    /*
-    KARAKTER
-    */
 
     drawPlayer(
         cameraX,
         cameraY
     );
+
 }
+
 
 function gameLoop() {
 
@@ -554,18 +872,28 @@ function gameLoop() {
     requestAnimationFrame(
         gameLoop
     );
+
 }
 
-playerImage.onload = function() {
 
-    gameLoop();
-};
+playerImage.onload =
+    function() {
 
-playerImage.onerror = function() {
+        gameLoop();
 
-    document.getElementById("info").textContent =
-        "ERROR: player.png tidak ditemukan";
-};
+    };
+
+
+playerImage.onerror =
+    function() {
+
+        document
+            .getElementById("info")
+            .textContent =
+            "ERROR: player.png tidak ditemukan";
+
+    };
+
 </script>
 
 </body>
