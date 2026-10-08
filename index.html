@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -18,22 +17,35 @@ html, body {
     height: 100%;
     overflow: hidden;
     background: #111;
-    font-family: Arial, sans-serif;
     touch-action: none;
+    font-family: Arial, sans-serif;
 }
 
 #game {
+    display: block;
     width: 100%;
     height: 100%;
-    display: block;
+}
+
+#info {
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    padding: 10px 14px;
+    background: rgba(0,0,0,.55);
+    color: white;
+    border-radius: 10px;
+    font-size: 14px;
+    z-index: 10;
 }
 
 #controls {
     position: fixed;
-    bottom: 25px;
     left: 25px;
+    bottom: 25px;
     width: 150px;
     height: 150px;
+    z-index: 10;
 }
 
 .btn {
@@ -42,15 +54,15 @@ html, body {
     height: 50px;
     border: 0;
     border-radius: 12px;
-    background: rgba(255,255,255,0.25);
+    background: rgba(255,255,255,.25);
     color: white;
-    font-size: 24px;
+    font-size: 23px;
     font-weight: bold;
     -webkit-tap-highlight-color: transparent;
 }
 
 .btn:active {
-    background: rgba(255,255,255,0.45);
+    background: rgba(255,255,255,.45);
 }
 
 #up {
@@ -71,17 +83,6 @@ html, body {
 #right {
     right: 0;
     top: 50px;
-}
-
-#info {
-    position: fixed;
-    top: 15px;
-    left: 15px;
-    color: white;
-    background: rgba(0,0,0,0.5);
-    padding: 10px 14px;
-    border-radius: 10px;
-    font-size: 14px;
 }
 </style>
 </head>
@@ -105,6 +106,9 @@ html, body {
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+const playerImage = new Image();
+playerImage.src = "player.png";
+
 let width = 0;
 let height = 0;
 
@@ -119,9 +123,30 @@ resize();
 const player = {
     x: 600,
     y: 450,
-    size: 28,
-    speed: 4
+
+    speed: 3,
+
+    width: 90,
+    height: 180,
+
+    direction: 0,
+
+    frame: 0,
+    frameTimer: 0,
+
+    moving: false
 };
+
+/*
+ROW SPRITE:
+
+0 = DEPAN
+1 = KIRI
+2 = BELAKANG
+3 = KANAN
+
+8 FRAME PER ARAH
+*/
 
 const keys = {
     up: false,
@@ -131,6 +156,7 @@ const keys = {
 };
 
 function setupButton(id, direction) {
+
     const button = document.getElementById(id);
 
     button.addEventListener("pointerdown", function(e) {
@@ -158,17 +184,41 @@ setupButton("left", "left");
 setupButton("right", "right");
 
 window.addEventListener("keydown", function(e) {
-    if (e.key === "ArrowUp" || e.key === "w") keys.up = true;
-    if (e.key === "ArrowDown" || e.key === "s") keys.down = true;
-    if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
-    if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
+
+    if (e.key === "ArrowUp" || e.key === "w") {
+        keys.up = true;
+    }
+
+    if (e.key === "ArrowDown" || e.key === "s") {
+        keys.down = true;
+    }
+
+    if (e.key === "ArrowLeft" || e.key === "a") {
+        keys.left = true;
+    }
+
+    if (e.key === "ArrowRight" || e.key === "d") {
+        keys.right = true;
+    }
 });
 
 window.addEventListener("keyup", function(e) {
-    if (e.key === "ArrowUp" || e.key === "w") keys.up = false;
-    if (e.key === "ArrowDown" || e.key === "s") keys.down = false;
-    if (e.key === "ArrowLeft" || e.key === "a") keys.left = false;
-    if (e.key === "ArrowRight" || e.key === "d") keys.right = false;
+
+    if (e.key === "ArrowUp" || e.key === "w") {
+        keys.up = false;
+    }
+
+    if (e.key === "ArrowDown" || e.key === "s") {
+        keys.down = false;
+    }
+
+    if (e.key === "ArrowLeft" || e.key === "a") {
+        keys.left = false;
+    }
+
+    if (e.key === "ArrowRight" || e.key === "d") {
+        keys.right = false;
+    }
 });
 
 const buildings = [
@@ -218,13 +268,70 @@ const buildings = [
 
 function update() {
 
-    if (keys.up) player.y -= player.speed;
-    if (keys.down) player.y += player.speed;
-    if (keys.left) player.x -= player.speed;
-    if (keys.right) player.x += player.speed;
+    let dx = 0;
+    let dy = 0;
 
-    player.x = Math.max(20, Math.min(1180, player.x));
-    player.y = Math.max(20, Math.min(880, player.y));
+    if (keys.up) dy -= 1;
+    if (keys.down) dy += 1;
+    if (keys.left) dx -= 1;
+    if (keys.right) dx += 1;
+
+    player.moving = dx !== 0 || dy !== 0;
+
+    if (!player.moving) {
+        player.frame = 0;
+        player.frameTimer = 0;
+        return;
+    }
+
+    const length = Math.sqrt(dx * dx + dy * dy);
+
+    dx /= length;
+    dy /= length;
+
+    player.x += dx * player.speed;
+    player.y += dy * player.speed;
+
+    /*
+    TENTUKAN ARAH SPRITE
+    */
+
+    if (dy > 0 && Math.abs(dy) >= Math.abs(dx)) {
+        player.direction = 0;
+    }
+    else if (dx < 0 && Math.abs(dx) > Math.abs(dy)) {
+        player.direction = 1;
+    }
+    else if (dy < 0 && Math.abs(dy) >= Math.abs(dx)) {
+        player.direction = 2;
+    }
+    else if (dx > 0 && Math.abs(dx) > Math.abs(dy)) {
+        player.direction = 3;
+    }
+
+    /*
+    ANIMASI JALAN
+    */
+
+    player.frameTimer++;
+
+    if (player.frameTimer >= 7) {
+
+        player.frameTimer = 0;
+
+        player.frame++;
+
+        if (player.frame >= 8) {
+            player.frame = 0;
+        }
+    }
+
+    /*
+    BATAS DUNIA
+    */
+
+    player.x = Math.max(40, Math.min(1160, player.x));
+    player.y = Math.max(40, Math.min(880, player.y));
 }
 
 function drawBuilding(building, cameraX, cameraY) {
@@ -232,22 +339,34 @@ function drawBuilding(building, cameraX, cameraY) {
     const x = building.x - cameraX;
     const y = building.y - cameraY;
 
-    ctx.fillStyle = "#d8d8d8";
-    ctx.fillRect(x, y, building.width, building.height);
+    ctx.fillStyle = "#d2d2d2";
+    ctx.fillRect(
+        x,
+        y,
+        building.width,
+        building.height
+    );
 
     ctx.fillStyle = "#555";
-    ctx.fillRect(x, y, building.width, 35);
+    ctx.fillRect(
+        x,
+        y,
+        building.width,
+        35
+    );
 
     ctx.fillStyle = "#fff";
     ctx.font = "bold 20px Arial";
     ctx.textAlign = "center";
+
     ctx.fillText(
         building.name,
         x + building.width / 2,
-        y + 25
+        y + 24
     );
 
     ctx.fillStyle = "#777";
+
     ctx.fillRect(
         x + building.width / 2 - 25,
         y + building.height - 55,
@@ -272,19 +391,82 @@ function drawBuilding(building, cameraX, cameraY) {
     );
 }
 
+function drawPlayer(cameraX, cameraY) {
+
+    if (!playerImage.complete) {
+        return;
+    }
+
+    /*
+    SPRITE SHEET
+    1536 × 1536
+
+    8 kolom = 192 px
+    4 baris  = 384 px
+    */
+
+    const sourceWidth = 192;
+    const sourceHeight = 384;
+
+    const sourceX = player.frame * sourceWidth;
+    const sourceY = player.direction * sourceHeight;
+
+    const screenX =
+        player.x -
+        cameraX -
+        player.width / 2;
+
+    const screenY =
+        player.y -
+        cameraY -
+        player.height;
+
+    ctx.drawImage(
+        playerImage,
+
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+
+        screenX,
+        screenY,
+        player.width,
+        player.height
+    );
+}
+
 function draw() {
 
     const cameraX = player.x - width / 2;
     const cameraY = player.y - height / 2;
 
-    ctx.clearRect(0, 0, width, height);
+    ctx.clearRect(
+        0,
+        0,
+        width,
+        height
+    );
 
-    // tanah
+    /*
+    TANAH
+    */
+
     ctx.fillStyle = "#72a95b";
-    ctx.fillRect(0, 0, width, height);
 
-    // jalan horizontal
+    ctx.fillRect(
+        0,
+        0,
+        width,
+        height
+    );
+
+    /*
+    JALAN
+    */
+
     ctx.fillStyle = "#555";
+
     ctx.fillRect(
         0,
         350 - cameraY,
@@ -292,7 +474,6 @@ function draw() {
         130
     );
 
-    // jalan vertikal
     ctx.fillRect(
         390 - cameraX,
         0,
@@ -300,67 +481,91 @@ function draw() {
         height
     );
 
-    // garis jalan
+    /*
+    GARIS JALAN
+    */
+
     ctx.strokeStyle = "#ddd";
     ctx.lineWidth = 4;
-    ctx.setLineDash([25, 20]);
+
+    ctx.setLineDash([
+        25,
+        20
+    ]);
 
     ctx.beginPath();
-    ctx.moveTo(0, 415 - cameraY);
-    ctx.lineTo(width, 415 - cameraY);
+
+    ctx.moveTo(
+        0,
+        415 - cameraY
+    );
+
+    ctx.lineTo(
+        width,
+        415 - cameraY
+    );
+
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.moveTo(455 - cameraX, 0);
-    ctx.lineTo(455 - cameraX, height);
+
+    ctx.moveTo(
+        455 - cameraX,
+        0
+    );
+
+    ctx.lineTo(
+        455 - cameraX,
+        height
+    );
+
     ctx.stroke();
 
     ctx.setLineDash([]);
 
+    /*
+    BANGUNAN
+    */
+
     for (const building of buildings) {
-        drawBuilding(building, cameraX, cameraY);
+        drawBuilding(
+            building,
+            cameraX,
+            cameraY
+        );
     }
 
-    // player
-    const px = player.x - cameraX;
-    const py = player.y - cameraY;
+    /*
+    KARAKTER
+    */
 
-    ctx.fillStyle = "#222";
-    ctx.beginPath();
-    ctx.arc(px, py - 18, 10, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#1976d2";
-    ctx.fillRect(
-        px - 12,
-        py - 8,
-        24,
-        30
-    );
-
-    ctx.fillStyle = "#222";
-    ctx.fillRect(
-        px - 15,
-        py + 22,
-        10,
-        15
-    );
-
-    ctx.fillRect(
-        px + 5,
-        py + 22,
-        10,
-        15
+    drawPlayer(
+        cameraX,
+        cameraY
     );
 }
 
 function gameLoop() {
+
     update();
+
     draw();
-    requestAnimationFrame(gameLoop);
+
+    requestAnimationFrame(
+        gameLoop
+    );
 }
 
-gameLoop();
+playerImage.onload = function() {
+
+    gameLoop();
+};
+
+playerImage.onerror = function() {
+
+    document.getElementById("info").textContent =
+        "ERROR: player.png tidak ditemukan";
+};
 </script>
 
 </body>
