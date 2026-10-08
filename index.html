@@ -16,7 +16,8 @@
     -webkit-touch-callout: none;
 }
 
-html, body {
+html,
+body {
     width: 100%;
     height: 100%;
     overflow: hidden;
@@ -30,51 +31,46 @@ canvas {
     height: 100%;
 }
 
-#controls {
+/* JOYSTICK */
+
+#joystick {
     position: fixed;
     left: 25px;
     bottom: 25px;
+
     width: 150px;
     height: 150px;
-    z-index: 10;
-}
 
-.btn {
-    position: absolute;
-    width: 50px;
-    height: 50px;
-    border: 0;
-    border-radius: 12px;
-    background: rgba(0,0,0,.35);
-    color: white;
-    font-size: 22px;
-    font-weight: bold;
-    -webkit-tap-highlight-color: transparent;
+    border-radius: 50%;
+
+    background: rgba(0,0,0,.28);
+    border: 3px solid rgba(255,255,255,.25);
+
+    z-index: 20;
+
     touch-action: none;
 }
 
-.btn:active {
-    background: rgba(0,0,0,.6);
-}
+#stick {
+    position: absolute;
 
-#up {
-    left: 50px;
-    top: 0;
-}
+    width: 65px;
+    height: 65px;
 
-#down {
-    left: 50px;
-    bottom: 0;
-}
+    left: 50%;
+    top: 50%;
 
-#left {
-    left: 0;
-    top: 50px;
-}
+    transform: translate(-50%, -50%);
 
-#right {
-    right: 0;
-    top: 50px;
+    border-radius: 50%;
+
+    background: rgba(255,255,255,.55);
+
+    border: 3px solid rgba(255,255,255,.8);
+
+    box-shadow: 0 3px 10px rgba(0,0,0,.3);
+
+    pointer-events: none;
 }
 </style>
 </head>
@@ -83,11 +79,8 @@ canvas {
 
 <canvas id="game"></canvas>
 
-<div id="controls">
-    <button class="btn" id="up">▲</button>
-    <button class="btn" id="down">▼</button>
-    <button class="btn" id="left">◀</button>
-    <button class="btn" id="right">▶</button>
+<div id="joystick">
+    <div id="stick"></div>
 </div>
 
 <script>
@@ -102,32 +95,37 @@ const playerImage = new Image();
 playerImage.src = "player.png";
 
 
+/* =========================
+   CANVAS
+========================= */
+
 function resize() {
+
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+
 }
 
 window.addEventListener("resize", resize);
+
 resize();
 
 
-/*
-==================================================
-SCENE
-==================================================
-*/
+/* =========================
+   WORLD
+========================= */
 
 const world = {
+
     width: 1200,
     height: 900
+
 };
 
 
-/*
-==================================================
-PLAYER
-==================================================
-*/
+/* =========================
+   PLAYER
+========================= */
 
 const player = {
 
@@ -149,108 +147,250 @@ const player = {
 };
 
 
-/*
-==================================================
-CONTROL
-==================================================
-*/
+/* =========================
+   JOYSTICK
+========================= */
 
-const keys = {
-    up: false,
-    down: false,
-    left: false,
-    right: false
-};
+const joystick =
+    document.getElementById("joystick");
+
+const stick =
+    document.getElementById("stick");
 
 
-function button(id, key) {
+let joystickActive = false;
 
-    const el = document.getElementById(id);
+let joystickX = 0;
+let joystickY = 0;
 
-    el.addEventListener("pointerdown", function(e) {
 
-        e.preventDefault();
-        keys[key] = true;
+const joystickRadius = 75;
 
-    });
 
-    el.addEventListener("pointerup", function(e) {
+function updateJoystick(e) {
 
-        e.preventDefault();
-        keys[key] = false;
+    const rect =
+        joystick.getBoundingClientRect();
 
-    });
+    const centerX =
+        rect.left +
+        rect.width / 2;
 
-    el.addEventListener("pointercancel", function() {
+    const centerY =
+        rect.top +
+        rect.height / 2;
 
-        keys[key] = false;
 
-    });
+    let dx =
+        e.clientX -
+        centerX;
 
-    el.addEventListener("pointerleave", function() {
 
-        keys[key] = false;
+    let dy =
+        e.clientY -
+        centerY;
 
-    });
+
+    const distance =
+        Math.sqrt(
+            dx * dx +
+            dy * dy
+        );
+
+
+    if (distance > joystickRadius) {
+
+        dx =
+            dx /
+            distance *
+            joystickRadius;
+
+        dy =
+            dy /
+            distance *
+            joystickRadius;
+
+    }
+
+
+    joystickX =
+        dx /
+        joystickRadius;
+
+
+    joystickY =
+        dy /
+        joystickRadius;
+
+
+    stick.style.left =
+        `calc(50% + ${dx}px)`;
+
+
+    stick.style.top =
+        `calc(50% + ${dy}px)`;
 
 }
 
 
-button("up", "up");
-button("down", "down");
-button("left", "left");
-button("right", "right");
+function resetJoystick() {
+
+    joystickActive = false;
+
+    joystickX = 0;
+    joystickY = 0;
+
+    stick.style.left = "50%";
+    stick.style.top = "50%";
+
+}
 
 
-/*
-==================================================
-KEYBOARD
-==================================================
-*/
+joystick.addEventListener(
+    "pointerdown",
+    function(e) {
 
-window.addEventListener("keydown", function(e) {
+        e.preventDefault();
 
-    if (e.key === "ArrowUp" || e.key === "w")
-        keys.up = true;
+        joystickActive = true;
 
-    if (e.key === "ArrowDown" || e.key === "s")
-        keys.down = true;
+        joystick.setPointerCapture(
+            e.pointerId
+        );
 
-    if (e.key === "ArrowLeft" || e.key === "a")
-        keys.left = true;
+        updateJoystick(e);
 
-    if (e.key === "ArrowRight" || e.key === "d")
-        keys.right = true;
-
-});
+    }
+);
 
 
-window.addEventListener("keyup", function(e) {
+joystick.addEventListener(
+    "pointermove",
+    function(e) {
 
-    if (e.key === "ArrowUp" || e.key === "w")
-        keys.up = false;
+        if (!joystickActive) {
+            return;
+        }
 
-    if (e.key === "ArrowDown" || e.key === "s")
-        keys.down = false;
+        e.preventDefault();
 
-    if (e.key === "ArrowLeft" || e.key === "a")
-        keys.left = false;
+        updateJoystick(e);
 
-    if (e.key === "ArrowRight" || e.key === "d")
-        keys.right = false;
-
-});
+    }
+);
 
 
-/*
-==================================================
-COLLISION AREA
-==================================================
+joystick.addEventListener(
+    "pointerup",
+    function(e) {
 
-Area kost dibuat tidak bisa dimasuki.
-Nanti kita bisa atur lebih presisi setelah
-melihat posisi player di scene.
-*/
+        e.preventDefault();
+
+        resetJoystick();
+
+    }
+);
+
+
+joystick.addEventListener(
+    "pointercancel",
+    function() {
+
+        resetJoystick();
+
+    }
+);
+
+
+/* =========================
+   KEYBOARD
+========================= */
+
+const keys = {
+
+    up: false,
+    down: false,
+    left: false,
+    right: false
+
+};
+
+
+window.addEventListener(
+    "keydown",
+    function(e) {
+
+        if (
+            e.key === "ArrowUp" ||
+            e.key === "w"
+        ) {
+            keys.up = true;
+        }
+
+        if (
+            e.key === "ArrowDown" ||
+            e.key === "s"
+        ) {
+            keys.down = true;
+        }
+
+        if (
+            e.key === "ArrowLeft" ||
+            e.key === "a"
+        ) {
+            keys.left = true;
+        }
+
+        if (
+            e.key === "ArrowRight" ||
+            e.key === "d"
+        ) {
+            keys.right = true;
+        }
+
+    }
+);
+
+
+window.addEventListener(
+    "keyup",
+    function(e) {
+
+        if (
+            e.key === "ArrowUp" ||
+            e.key === "w"
+        ) {
+            keys.up = false;
+        }
+
+        if (
+            e.key === "ArrowDown" ||
+            e.key === "s"
+        ) {
+            keys.down = false;
+        }
+
+        if (
+            e.key === "ArrowLeft" ||
+            e.key === "a"
+        ) {
+            keys.left = false;
+        }
+
+        if (
+            e.key === "ArrowRight" ||
+            e.key === "d"
+        ) {
+            keys.right = false;
+        }
+
+    }
+);
+
+
+/* =========================
+   COLLISION
+========================= */
 
 const blockedAreas = [
 
@@ -266,7 +406,10 @@ const blockedAreas = [
 
 function isBlocked(x, y) {
 
-    for (const area of blockedAreas) {
+    for (
+        const area
+        of blockedAreas
+    ) {
 
         if (
             x > area.x &&
@@ -286,17 +429,27 @@ function isBlocked(x, y) {
 }
 
 
-/*
-==================================================
-UPDATE PLAYER
-==================================================
-*/
+/* =========================
+   UPDATE
+========================= */
 
 function update() {
 
     let dx = 0;
     let dy = 0;
 
+
+    /* JOYSTICK */
+
+    if (joystickActive) {
+
+        dx += joystickX;
+        dy += joystickY;
+
+    }
+
+
+    /* KEYBOARD */
 
     if (keys.up)
         dy -= 1;
@@ -312,8 +465,8 @@ function update() {
 
 
     player.moving =
-        dx !== 0 ||
-        dy !== 0;
+        Math.abs(dx) > 0.08 ||
+        Math.abs(dy) > 0.08;
 
 
     if (!player.moving) {
@@ -333,8 +486,12 @@ function update() {
         );
 
 
-    dx /= length;
-    dy /= length;
+    if (length > 1) {
+
+        dx /= length;
+        dy /= length;
+
+    }
 
 
     let newX =
@@ -347,108 +504,121 @@ function update() {
         dy * player.speed;
 
 
-    if (!isBlocked(newX, player.y)) {
+    if (
+        !isBlocked(
+            newX,
+            player.y
+        )
+    ) {
+
         player.x = newX;
+
     }
 
-
-    if (!isBlocked(player.x, newY)) {
-        player.y = newY;
-    }
-
-
-    /*
-    Arah karakter
-    */
 
     if (
-        dy > 0 &&
-        Math.abs(dy) >= Math.abs(dx)
+        !isBlocked(
+            player.x,
+            newY
+        )
     ) {
 
-        player.direction = 0;
-
-    }
-
-    else if (
-        dx < 0 &&
-        Math.abs(dx) > Math.abs(dy)
-    ) {
-
-        player.direction = 1;
-
-    }
-
-    else if (
-        dy < 0 &&
-        Math.abs(dy) >= Math.abs(dx)
-    ) {
-
-        player.direction = 2;
-
-    }
-
-    else if (
-        dx > 0 &&
-        Math.abs(dx) > Math.abs(dy)
-    ) {
-
-        player.direction = 3;
+        player.y = newY;
 
     }
 
 
-    /*
-    Animasi
-    */
+    /* ARAH */
 
-    player.frameTimer++;
+    if (
+        Math.abs(dx) >
+        Math.abs(dy)
+    ) {
 
+        if (dx > 0) {
 
-    if (player.frameTimer >= 8) {
+            player.direction = 3;
 
-        player.frameTimer = 0;
+        } else {
 
-        player.frame++;
+            player.direction = 1;
 
-        if (player.frame >= 8) {
-            player.frame = 0;
+        }
+
+    }
+
+    else {
+
+        if (dy > 0) {
+
+            player.direction = 0;
+
+        } else {
+
+            player.direction = 2;
+
         }
 
     }
 
 
-    /*
-    Batas dunia
-    */
+    /* ANIMASI */
 
-    player.x = Math.max(
-        40,
-        Math.min(
-            world.width - 40,
-            player.x
-        )
-    );
+    player.frameTimer++;
 
 
-    player.y = Math.max(
-        40,
-        Math.min(
-            world.height - 20,
-            player.y
-        )
-    );
+    if (
+        player.frameTimer >= 8
+    ) {
+
+        player.frameTimer = 0;
+
+        player.frame++;
+
+
+        if (
+            player.frame >= 8
+        ) {
+
+            player.frame = 0;
+
+        }
+
+    }
+
+
+    /* BATAS MAP */
+
+    player.x =
+        Math.max(
+            40,
+            Math.min(
+                world.width - 40,
+                player.x
+            )
+        );
+
+
+    player.y =
+        Math.max(
+            40,
+            Math.min(
+                world.height - 20,
+                player.y
+            )
+        );
 
 }
 
 
-/*
-==================================================
-DRAW SCENE
-==================================================
-*/
+/* =========================
+   DRAW SCENE
+========================= */
 
-function drawScene(cameraX, cameraY) {
+function drawScene(
+    cameraX,
+    cameraY
+) {
 
     if (!scene.complete) {
         return;
@@ -456,6 +626,7 @@ function drawScene(cameraX, cameraY) {
 
 
     ctx.drawImage(
+
         scene,
 
         -cameraX,
@@ -463,31 +634,29 @@ function drawScene(cameraX, cameraY) {
 
         world.width,
         world.height
+
     );
 
 }
 
 
-/*
-==================================================
-DRAW PLAYER
-==================================================
-*/
+/* =========================
+   DRAW PLAYER
+========================= */
 
-function drawPlayer(cameraX, cameraY) {
+function drawPlayer(
+    cameraX,
+    cameraY
+) {
 
     if (!playerImage.complete) {
         return;
     }
 
 
-    /*
-    Ambil ukuran sprite otomatis.
-    8 kolom × 4 baris.
-    */
-
     const frameWidth =
         playerImage.width / 8;
+
 
     const frameHeight =
         playerImage.height / 4;
@@ -536,11 +705,9 @@ function drawPlayer(cameraX, cameraY) {
 }
 
 
-/*
-==================================================
-DRAW
-==================================================
-*/
+/* =========================
+   DRAW
+========================= */
 
 function draw() {
 
@@ -555,6 +722,7 @@ function draw() {
 
 
     ctx.fillStyle = "#111";
+
 
     ctx.fillRect(
         0,
@@ -578,11 +746,9 @@ function draw() {
 }
 
 
-/*
-==================================================
-GAME LOOP
-==================================================
-*/
+/* =========================
+   GAME LOOP
+========================= */
 
 function gameLoop() {
 
@@ -597,20 +763,7 @@ function gameLoop() {
 }
 
 
-scene.onload = function() {
-
-    gameLoop();
-
-};
-
-
-scene.onerror = function() {
-
-    alert(
-        "scene1-kost.png tidak ditemukan"
-    );
-
-};
+gameLoop();
 
 </script>
 
