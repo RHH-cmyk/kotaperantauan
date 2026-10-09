@@ -39,8 +39,8 @@
         .hud-debt { color: #ef4444; margin-top: 8px; }
 
         .controls-area { width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 2rem; pointer-events: none; position: absolute; bottom: 40px; left: 0;}
-        .joystick-base { width: 130px; height: 130px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
-        .joystick-stick { width: 60px; height: 60px; background: rgba(255,255,255,0.8); border-radius: 50%; pointer-events: none; }
+        .joystick-base { width: 160px; height: 160px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
+        .joystick-stick { width: 75px; height: 75px; background: rgba(255,255,255,0.8); border-radius: 50%; pointer-events: none; }
 
         .btn-action { width: 90px; height: 90px; background: linear-gradient(135deg, #ef4444, #b91c1c); border: 4px solid #fca5a5; border-radius: 50%; color: white; font-family: 'Press Start 2P', cursive; font-size: 0.8rem; display: flex; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 6px 0 #7f1d1d; transition: transform 0.1s; }
         .btn-action:active:not(.disabled) { transform: translateY(6px); box-shadow: 0 0 0 #7f1d1d; }
@@ -143,8 +143,10 @@
         function initThreeEngine() {
             const canvas = document.getElementById('webgl-canvas');
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB); // Langit Biru
-            scene.fog = new THREE.FogExp2(0x87CEEB, 0.015);
+            
+            // Warna langit abu-abu gelap (Polusi/Malam mendung)
+            scene.background = new THREE.Color(0x1e242b); 
+            scene.fog = new THREE.FogExp2(0x1e242b, 0.035); // Kabut tebal agar ujung jalan tidak terlihat
 
             camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
             
@@ -153,32 +155,31 @@
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-            // Cahaya
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            // Cahaya: Redup dan dingin (Pucat)
+            const ambientLight = new THREE.AmbientLight(0x606a75, 0.8); 
             scene.add(ambientLight);
 
-            const sun = new THREE.DirectionalLight(0xfff5b6, 1.5);
-            sun.position.set(50, 100, 50);
+            const sun = new THREE.DirectionalLight(0x8fa3b8, 1.2); // Matahari tertutup mendung pucat
+            sun.position.set(30, 80, 20);
             sun.castShadow = true;
-            sun.shadow.camera.left = -100; sun.shadow.camera.right = 100;
-            sun.shadow.camera.top = 100; sun.shadow.camera.bottom = -100;
-            sun.shadow.mapSize.width = 2048; sun.shadow.mapSize.height = 2048;
+            sun.shadow.camera.left = -50; sun.shadow.camera.right = 50;
+            sun.shadow.camera.top = 50; sun.shadow.camera.bottom = -50;
             scene.add(sun);
 
-            // Lantai Rumput Hijau (Dasar Kota)
+            // Lantai Tanah (Diubah dari rumput hijau jadi beton/tanah gelap kotor)
             const groundGeo = new THREE.PlaneGeometry(500, 500);
-            const groundMat = new THREE.MeshStandardMaterial({ color: 0x4ade80 }); // Hijau terang
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x161a1d }); 
             const ground = new THREE.Mesh(groundGeo, groundMat);
             ground.rotation.x = -Math.PI / 2;
             ground.receiveShadow = true;
             scene.add(ground);
 
-            // Jalan Aspal Utama (Membelah Kota)
-            const roadGeo = new THREE.PlaneGeometry(20, 500);
-            const roadMat = new THREE.MeshStandardMaterial({ color: 0x334155 }); // Abu-abu aspal
+            // Jalan Aspal (Dipersempit agar bangunan makin dekat)
+            const roadGeo = new THREE.PlaneGeometry(14, 500);
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x0f1115 }); // Aspal sangat gelap
             const road = new THREE.Mesh(roadGeo, roadMat);
             road.rotation.x = -Math.PI / 2;
-            road.position.y = 0.05; // Sedikit di atas rumput
+            road.position.y = 0.05; 
             road.receiveShadow = true;
             scene.add(road);
 
@@ -262,51 +263,44 @@
         function buildCity(models) {
             const buildingKeys = ['b_kost', 'b_mart', 'b_office', 'b_house'];
             
-            // Kita susun bangunan berjejer di sepanjang jalan (Sumbu Z)
-            // Jalan ada di x=0. Bangunan di Kiri (x=-18) dan Kanan (x=18)
-            let zPos = -100;
+            let zPos = -120;
             
-            for(let i=0; i<10; i++) { // Buat 10 baris bangunan (Total 20 Gedung)
-                // --- SISI KIRI ---
+            // Buat 25 baris bangunan (Total 50 Gedung) agar padat
+            for(let i=0; i<25; i++) { 
+                // --- SISI KIRI (Didekatkan ke jalan) ---
                 let randLeft = buildingKeys[Math.floor(Math.random() * buildingKeys.length)];
                 let bLeft = models[randLeft].model.clone();
-                bLeft.scale.set(4.5, 4.5, 4.5); // Skala bangunan dibesarkan agar proporsional dgn Isman
-                bLeft.position.set(-18, 0, zPos);
-                bLeft.rotation.y = Math.PI / 2; // Menghadap jalan
+                bLeft.scale.set(4.5, 4.5, 4.5); 
+                bLeft.position.set(-11, 0, zPos); // Jarak X dirapatkan dari 18 ke 11
+                bLeft.rotation.y = Math.PI / 2; 
                 scene.add(bLeft);
 
-                // Buat Zona Interaksi untuk Kiri
                 if(models[randLeft].data.job !== 'none') {
-                    interactZones.push({ x: -18, z: zPos, radius: 10, name: models[randLeft].data.name, type: models[randLeft].data.job });
+                    interactZones.push({ x: -11, z: zPos, radius: 8, name: models[randLeft].data.name, type: models[randLeft].data.job });
                 }
 
-                // --- SISI KANAN ---
+                // --- SISI KANAN (Didekatkan ke jalan) ---
                 let randRight = buildingKeys[Math.floor(Math.random() * buildingKeys.length)];
                 let bRight = models[randRight].model.clone();
                 bRight.scale.set(4.5, 4.5, 4.5);
-                bRight.position.set(18, 0, zPos);
-                bRight.rotation.y = -Math.PI / 2; // Menghadap jalan
+                bRight.position.set(11, 0, zPos); // Jarak X dirapatkan dari 18 ke 11
+                bRight.rotation.y = -Math.PI / 2; 
                 scene.add(bRight);
 
-                // Buat Zona Interaksi untuk Kanan
                 if(models[randRight].data.job !== 'none') {
-                    interactZones.push({ x: 18, z: zPos, radius: 10, name: models[randRight].data.name, type: models[randRight].data.job });
+                    interactZones.push({ x: 11, z: zPos, radius: 8, name: models[randRight].data.name, type: models[randRight].data.job });
                 }
 
                 // --- TANAM POHON ---
-                if(models['tree']) {
+                if(models['tree'] && Math.random() > 0.3) { // Pohon muncul acak agar tidak kaku
                     let tree1 = models['tree'].model.clone();
                     tree1.scale.set(4, 4, 4);
-                    tree1.position.set(-12, 0, zPos + 10);
+                    // Pohon ditaruh di sela-sela gedung
+                    tree1.position.set(-10, 0, zPos + 7);
                     scene.add(tree1);
-
-                    let tree2 = models['tree'].model.clone();
-                    tree2.scale.set(4, 4, 4);
-                    tree2.position.set(12, 0, zPos - 10);
-                    scene.add(tree2);
                 }
 
-                zPos += 30; // Jarak antar baris bangunan
+                zPos += 14; // Jarak Z antar gedung SANGAT dirapatkan (dari 30 ke 14)
             }
         }
 
@@ -431,7 +425,7 @@
             if(ismanMesh) {
                 let isMoving = false;
                 if(joystick.active) {
-                    let speed = 15 * dt; // Kecepatan jalan disesuaikan
+                    let speed = 6 * dt; // Dari 15 diturunkan ke 6
                     ismanMesh.position.x += joystick.x * speed;
                     ismanMesh.position.z += joystick.y * speed;
                     ismanMesh.rotation.y = Math.atan2(joystick.x, joystick.y);
@@ -448,10 +442,9 @@
                     }
                 }
 
-                // Kamera Mengikuti Isman (Sudut Miring Isometric)
-                camera.position.x = ismanMesh.position.x + 15;
-                camera.position.y = ismanMesh.position.y + 25; // Tinggikan kamera agar atap terlihat
-                camera.position.z = ismanMesh.position.z + 20;
+                camera.position.x = ismanMesh.position.x + 8; // Dari 15 jadi 8 (Lebih dekat)
+                camera.position.y = ismanMesh.position.y + 12; // Dari 25 jadi 12 (Lebih rendah)
+                camera.position.z = ismanMesh.position.z + 12; // Dari 20 jadi 12 (Lebih dekat)
                 camera.lookAt(ismanMesh.position);
 
                 // Cek Area Interaksi
