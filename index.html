@@ -3,214 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kota Perantauan 3D</title>
+    <title>Kalibrasi Aset 3D</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700&display=swap');
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Nunito', sans-serif; background-color: #000; color: #e2e8f0; overflow: hidden; width: 100vw; height: 100vh; touch-action: none; user-select: none; }
-        #game-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #1a1e24; }
-        #webgl-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; display: block; }
+        body { font-family: 'Nunito', sans-serif; background-color: #1a1e24; color: #fff; overflow: hidden; touch-action: none; user-select: none; }
+        #webgl-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #loading-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #1a1e24; z-index: 99; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .loading-text { font-family: 'Press Start 2P', cursive; color: #fbbf24; font-size: 1rem; margin-bottom: 10px; text-align: center; line-height: 1.5; }
+        #loading-detail { font-family: 'Press Start 2P', cursive; color: #94a3b8; font-size: 0.6rem; }
         
-        .screen-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-
-        #main-menu { z-index: 50; background: rgba(26, 30, 36, 0.95); }
-        .game-title { font-family: 'Press Start 2P', cursive; font-size: clamp(1.2rem, 4vw, 2.5rem); color: #fbbf24; text-shadow: 4px 4px 0 #92400e; margin-bottom: 2rem; text-align: center; line-height: 1.5; }
-        .btn-menu { background: linear-gradient(to bottom, #3b82f6, #2563eb); border: 4px solid #93c5fd; color: white; font-family: 'Press Start 2P', cursive; font-size: 1rem; padding: 1rem 2rem; border-radius: 12px; cursor: pointer; box-shadow: 0 8px 0 #1e3a8a; margin: 10px; transition: transform 0.1s; }
-        .btn-menu:active { transform: translateY(8px); box-shadow: 0 0 0 #1e3a8a; }
-
-        #loading-screen { z-index: 60; display: none; background: #1a1e24; }
-        .loading-text { font-family: 'Press Start 2P', cursive; font-size: 1.2rem; color: #38bdf8; margin-bottom: 1rem; text-align: center; }
-        #loading-detail { color: #94a3b8; font-size: 0.8rem; margin-top: 10px; font-family: 'Press Start 2P', cursive; text-align: center;}
-
-        #hud { z-index: 10; display: none; background: transparent; pointer-events: none; }
-        
-        .top-bar { width: 100%; display: flex; justify-content: space-between; padding: 15px; pointer-events: auto; position: absolute; top: 0; left: 0;}
-        .hud-panel { background: rgba(15,23,42,0.8); border: 2px solid rgba(71,85,105,0.8); padding: 10px 15px; border-radius: 12px; backdrop-filter: blur(4px); }
-        .hud-stats { display: flex; flex-direction: column; gap: 10px; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; color: white; }
-        .stat-row { display: flex; align-items: center; gap: 10px; }
-        .bar-bg { width: 80px; height: 12px; background: #334155; border-radius: 6px; overflow: hidden; border: 1px solid #000; }
-        .bar-fill { height: 100%; transition: width 0.3s; }
-        #energy-bar { background: #facc15; }
-        #mood-bar { background: #38bdf8; }
-        
-        .hud-time { text-align: right; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; }
-        .hud-debt { color: #ef4444; margin-top: 8px; }
-
-        .controls-area { width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 2rem; pointer-events: none; position: absolute; bottom: 40px; left: 0;}
-        .joystick-base { width: 150px; height: 150px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); border-radius: 50%; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
-        .joystick-stick { width: 70px; height: 70px; background: rgba(255,255,255,0.6); border-radius: 50%; pointer-events: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5);}
-
-        .btn-action { width: 90px; height: 90px; background: linear-gradient(135deg, #ef4444, #b91c1c); border: 4px solid #fca5a5; border-radius: 50%; color: white; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; display: flex; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 6px 0 #7f1d1d; transition: transform 0.1s; text-align: center; }
-        .btn-action:active:not(.disabled) { transform: translateY(6px); box-shadow: 0 0 0 #7f1d1d; }
-        .btn-action.disabled { filter: grayscale(1); opacity: 0.4; pointer-events: none; }
-
-        #modal-ui { z-index: 100; display: none; background: rgba(0,0,0,0.85); }
-        .modal-box { background: #1e293b; border: 4px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; max-width: 90%; width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.8);}
-        .modal-title { font-family: 'Press Start 2P', cursive; font-size: 1rem; color: #fbbf24; margin-bottom: 1rem; }
-        .modal-desc { font-size: 0.9rem; margin-bottom: 1.5rem; color: #e2e8f0; white-space: pre-wrap; line-height: 1.5; }
-        .modal-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;}
-        .btn-generic { background: #3b82f6; color: white; border: 2px solid #93c5fd; padding: 0.8rem 1.2rem; border-radius: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.8rem; cursor: pointer; }
-        .btn-cancel { background: #ef4444; border-color: #fca5a5; }
-        
-        #toast { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); background: rgba(30,58,138,0.95); border: 2px solid #60a5fa; padding: 10px 20px; border-radius: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; z-index: 80; opacity: 0; transition: opacity 0.3s; color: white; pointer-events: none; text-align: center;}
-        
-        /* WADAH LABEL BANGUNAN */
-        #labels-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: hidden; }
-        
-        .bldg-label { 
-            position: absolute; 
-            background: rgba(15, 23, 42, 0.85); 
-            border: 2px solid #64748b; 
-            color: #fbbf24; 
-            padding: 6px 10px; 
-            border-radius: 6px; 
-            font-family: 'Press Start 2P', cursive; 
-            font-size: 0.6rem; 
-            transform: translate(-50%, -100%); 
-            transition: opacity 0.2s; 
-            text-shadow: 2px 2px 0px #000; 
-            display: flex; flex-direction: column; align-items: center; gap: 4px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5); 
-            white-space: nowrap;
-        }
-        .bldg-label span { color: #cbd5e1; font-size: 0.5rem; }
-        
-        #fade-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 90; opacity: 0; pointer-events: none; transition: opacity 0.5s ease-in-out; }
+        .controls-area { width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 2rem; pointer-events: none; position: absolute; bottom: 40px; left: 0; z-index: 10; }
+        .joystick-base { width: 120px; height: 120px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
+        .joystick-stick { width: 50px; height: 50px; background: rgba(255,255,255,0.7); border-radius: 50%; pointer-events: none; }
     </style>
 </head>
 <body>
+    <canvas id="webgl-canvas"></canvas>
 
-    <div id="game-container">
-        <canvas id="webgl-canvas"></canvas>
+    <div id="loading-screen">
+        <div class="loading-text">MEMUAT ASET...<br><span id="loading-progress">0%</span></div>
+        <div id="loading-detail">Menyiapkan aspal & bangunan</div>
+    </div>
 
-        <div id="labels-container"></div>
-        <div id="fade-overlay"></div>
-
-        <div id="main-menu" class="screen-layer">
-            <div class="game-title">KOTA PERANTAUAN 3D</div>
-            <div style="color: #94a3b8; margin-bottom: 2rem; font-family: 'Press Start 2P'; font-size: 0.7rem; text-align: center; line-height: 1.5;">
-                V1.4 - Crossroads & Labels<br><br>Gunakan Joystick kiri untuk jalan.<br>Dekati gedung bercahaya untuk Interaksi.
-            </div>
-            <button class="btn-menu" onclick="startLoading()">Mulai Perantauan</button>
-            <button class="btn-menu" style="background: #475569; border-color: #94a3b8;" onclick="toggleFullScreen()">Full Screen</button>
-        </div>
-
-        <div id="loading-screen" class="screen-layer">
-            <div class="loading-text">MEMUAT DUNIA 3D...</div>
-            <div id="loading-progress" style="font-family: 'Press Start 2P'; font-size: 2rem; color: #fbbf24;">0%</div>
-            <div id="loading-detail">Menyiapkan aset...</div>
-        </div>
-
-        <div id="hud" class="screen-layer">
-            <div class="top-bar">
-                <div class="hud-panel hud-stats">
-                    <div class="stat-row">💰 <span id="ui-money">Rp 1.000.000</span></div>
-                    <div class="stat-row">⚡ <div class="bar-bg"><div id="energy-bar" class="bar-fill" style="width: 100%;"></div></div></div>
-                    <div class="stat-row">😊 <div class="bar-bg"><div id="mood-bar" class="bar-fill" style="width: 100%;"></div></div></div>
-                </div>
-                <div class="hud-panel hud-time">
-                    <div style="color: #fbbf24; margin-bottom: 8px;">HARI <span id="ui-day">1</span>/365</div>
-                    <div id="ui-clock" style="font-size: 1rem; margin-bottom: 8px;">08:00</div>
-                    <div class="hud-debt">UTANG: <span id="ui-debt">Rp 50 Juta</span></div>
-                </div>
-            </div>
-
-            <div class="controls-area">
-                <div class="joystick-base" id="joystick-zone">
-                    <div class="joystick-stick" id="joystick-stick"></div>
-                </div>
-                <div class="btn-action disabled" id="btn-action">AKSI</div>
-            </div>
-        </div>
-
-        <div id="toast">Notifikasi</div>
-
-        <div id="modal-ui" class="screen-layer">
-            <div class="modal-box">
-                <div class="modal-title" id="modal-title">Judul</div>
-                <div class="modal-desc" id="modal-desc">Deskripsi...</div>
-                <div class="modal-buttons" id="modal-buttons"></div>
-            </div>
-        </div>
+    <div class="controls-area">
+        <div class="joystick-base" id="joystick-zone"><div class="joystick-stick" id="joystick-stick"></div></div>
     </div>
 
     <script>
-        const gameState = {
-            isPlaying: false, money: 1000000, debt: 50000000, energy: 100, mood: 100,
-            day: 1, inGameMinutes: 8 * 60,
-            kostRented: false, rentDaysLeft: 0, currentScene: 'kost'
-        };
-
         let scene, camera, renderer, clock, mixer;
         let ismanMesh = null;
-        let characterActions = {}; 
         let activeAction = null;
-        let interactZones = [];
-        let activeInteractTarget = null;
+        let characterActions = {};
+        let globalModels = {};
         
-        let envGroup = null; 
-        let globalModels = {}; 
-        let uiLabels = []; 
-        
+        // SISTEM GRID (Ukuran presisi agar tidak ada celah)
+        const TILE_SIZE = 3.0; // Ukuran 1 blok setelah di-scale
+
         const joystick = { active: false, x: 0, y: 0, touchId: null };
 
-        function toggleFullScreen() {
-            if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(()=>{}); } 
-            else { if (document.exitFullscreen) document.exitFullscreen(); }
-        }
-        function formatRp(amount) { return "Rp " + amount.toLocaleString('id-ID'); }
-        function showToast(msg) {
-            const t = document.getElementById('toast');
-            t.innerText = msg; t.style.opacity = 1;
-            setTimeout(() => t.style.opacity = 0, 3000);
-        }
-
-        function startLoading() {
-            document.getElementById('main-menu').style.display = 'none';
-            document.getElementById('loading-screen').style.display = 'flex';
-            initThreeEngine();
-        }
+        initThreeEngine();
 
         function initThreeEngine() {
             const canvas = document.getElementById('webgl-canvas');
             scene = new THREE.Scene();
             
-            // Pencahayaan agak terang tapi tetap kusam (kota industri)
-            scene.background = new THREE.Color(0x363d45); 
-            scene.fog = new THREE.FogExp2(0x363d45, 0.015); 
-
-            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
-            
-            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            
-            renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 0.85; // Diterangkan sedikit agar tidak horor
-
-            const ambientLight = new THREE.AmbientLight(0xaaccff, 0.8); // Cahaya langit sejuk
-            scene.add(ambientLight);
-
-            const sun = new THREE.DirectionalLight(0xfff0dd, 1.2); 
-            sun.position.set(20, 40, -10);
-            sun.castShadow = true;
-            sun.shadow.mapSize.width = 1024;
-            sun.shadow.mapSize.height = 1024;
-            sun.shadow.camera.left = -40; sun.shadow.camera.right = 40;
-            sun.shadow.camera.top = 40; sun.shadow.camera.bottom = -40;
+            // Pencahayaan dibuat cerah dan jelas agar warna asli aset terlihat
+            scene.background = new THREE.Color(0x87CEEB); // Langit biru terang
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const sun = new THREE.DirectionalLight(0xffffff, 1.0); 
+            sun.position.set(20, 50, -20);
             scene.add(sun);
 
-            // Lantai Dasar - Aspal Gelap (Bukan path-long oren lagi)
-            const groundGeo = new THREE.PlaneGeometry(300, 300);
-            const groundMat = new THREE.MeshStandardMaterial({ color: 0x1f2226, roughness: 0.9 }); 
-            const ground = new THREE.Mesh(groundGeo, groundMat);
+            // Lantai dasar (Rumput hijau gelap sebagai alas di bawah aspal)
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(200, 200),
+                new THREE.MeshStandardMaterial({ color: 0x2d4c1e })
+            );
             ground.rotation.x = -Math.PI / 2;
-            ground.receiveShadow = true;
+            ground.position.y = -0.1; // Sedikit di bawah aspal
             scene.add(ground);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
 
             clock = new THREE.Clock();
             loadAssets();
@@ -218,228 +76,109 @@
 
         function loadAssets() {
             const loader = new THREE.GLTFLoader();
-            
-            // Sesuai dengan katalog gambar Kenney City Kit Suburban
+            // HANYA MEMUAT ASET YANG DIBUTUHKAN UNTUK KALIBRASI
             const assetsToLoad = [
                 { id: 'player', path: 'assets/models/Isman.glb' },
-                { id: 'tree', path: 'assets/models/tree-large.glb' },
-                { id: 'fence', path: 'assets/models/fence.glb' },
-                { id: 'path_trotoar', path: 'assets/models/path-long.glb' }, // Hanya dipakai untuk trotoar pinggir
-                
-                // Variasi Bangunan Sesuai Fungsi
-                { id: 'b_kost', path: 'assets/models/building-type-i.glb' },
-                { id: 'b_mart', path: 'assets/models/building-type-j.glb' },
-                { id: 'b_bank', path: 'assets/models/building-type-k.glb' },
-                { id: 'b_office', path: 'assets/models/building-type-q.glb' },
-                { id: 'b_house1', path: 'assets/models/building-type-a.glb' },
-                { id: 'b_house2', path: 'assets/models/building-type-c.glb' }
+                { id: 'aspal', path: 'assets/models/driveway-long.glb' },
+                { id: 'trotoar', path: 'assets/models/path-long.glb' },
+                { id: 'rumah', path: 'assets/models/building-type-a.glb' },
+                { id: 'minimarket', path: 'assets/models/building-type-j.glb' }
             ];
 
-            let loadedCount = 0;
-
+            let loaded = 0;
             assetsToLoad.forEach(asset => {
-                document.getElementById('loading-detail').innerText = `Mengunduh: ${asset.path.split('/').pop()}`;
-                
                 loader.load(asset.path, (gltf) => {
-                    const model = gltf.scene;
-                    model.traverse(n => { if(n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
-                    
                     if(asset.id === 'player') {
-                        ismanMesh = model;
-                        ismanMesh.scale.set(0.7, 0.7, 0.7); 
+                        ismanMesh = gltf.scene;
+                        ismanMesh.scale.set(0.8, 0.8, 0.8); // Ukuran Isman
                         scene.add(ismanMesh);
                         
-                        if(gltf.animations && gltf.animations.length > 0) {
+                        if(gltf.animations.length > 0) {
                             mixer = new THREE.AnimationMixer(ismanMesh);
-                            let findIdle = null; let findWalk = null;
+                            let idleClip = gltf.animations.find(a => a.name.toLowerCase().includes('idle')) || gltf.animations[0];
+                            let walkClip = gltf.animations.find(a => a.name.toLowerCase().includes('walk') || a.name.toLowerCase().includes('run')) || idleClip;
                             
-                            gltf.animations.forEach(clip => {
-                                const clipName = clip.name.toLowerCase();
-                                if(clipName.includes('idle')) findIdle = mixer.clipAction(clip);
-                                if(clipName.includes('walk') || clipName.includes('run')) findWalk = mixer.clipAction(clip);
-                            });
-
-                            characterActions['idle'] = findIdle || mixer.clipAction(gltf.animations[0]);
-                            characterActions['walk'] = findWalk || characterActions['idle'];
-                            
+                            characterActions['idle'] = mixer.clipAction(idleClip);
+                            characterActions['walk'] = mixer.clipAction(walkClip);
                             activeAction = characterActions['idle'];
                             activeAction.play();
                         }
                     } else {
-                        globalModels[asset.id] = { model: model };
+                        globalModels[asset.id] = gltf.scene;
                     }
 
-                    loadedCount++;
-                    document.getElementById('loading-progress').innerText = Math.floor((loadedCount / assetsToLoad.length) * 100) + '%';
+                    loaded++;
+                    document.getElementById('loading-progress').innerText = Math.floor((loaded / assetsToLoad.length) * 100) + '%';
                     
-                    if(loadedCount === assetsToLoad.length) {
-                        changeScene('kost', 0, 10);
-                        setTimeout(startGame, 500);
+                    if(loaded === assetsToLoad.length) {
+                        buildTestStreet();
+                        document.getElementById('loading-screen').style.display = 'none';
+                        requestAnimationFrame(gameLoop);
                     }
-                }, undefined, (e) => { 
-                    console.error(e);
-                    loadedCount++; if(loadedCount === assetsToLoad.length) setTimeout(startGame, 500); 
                 });
             });
         }
 
-        // --- SISTEM SCENE & MAP GENERATOR MANUAL ---
-        function changeScene(sceneName, spawnX, spawnZ) {
-            const fade = document.getElementById('fade-overlay');
-            fade.style.opacity = 1; 
-            
-            setTimeout(() => {
-                if(envGroup) { scene.remove(envGroup); }
-                envGroup = new THREE.Group();
-                scene.add(envGroup);
-                
-                interactZones = [];
-                uiLabels = [];
-                document.getElementById('labels-container').innerHTML = '';
-                
-                ismanMesh.position.set(spawnX, 0, spawnZ);
-                gameState.currentScene = sceneName;
-                
-                buildScene(sceneName); 
-                
-                setTimeout(() => { fade.style.opacity = 0; }, 400); 
-            }, 600);
-        }
+        // FUNGSI MEMBANGUN JALAN DENGAN PRESISI (GRID SYSTEM)
+        function buildTestStreet() {
+            // Kita buat jalan lurus sepanjang 10 blok ke depan dan ke belakang
+            for(let z = -10; z <= 10; z++) {
+                let zPos = z * TILE_SIZE;
 
-        function buildScene(sceneName) {
-            const m = globalModels;
-            
-            if(sceneName === 'kost') {
-                // SCENE 1: GANG KOST (Jalan buntu sempit)
-                // Hiasan Kiri (Berjejer rapat)
-                for(let z = -10; z <= 20; z+=6) {
-                    if(m['b_house1']) placeObject(m['b_house1'].model, -4, z, Math.PI/2, 2);
-                }
-                
-                // Bangunan Kost Utama (Kanan)
-                if(m['b_kost']) {
-                    placeObject(m['b_kost'].model, 4, 0, -Math.PI/2, 2.5);
-                    addInteractZone(4, 0, 4, 'kost', 'KOST BAPAK', 'Istirahat & Save');
-                }
-                
-                // Hiasan Kanan
-                if(m['fence']) {
-                    placeObject(m['fence'].model, 3, 10, -Math.PI/2, 2);
-                    placeObject(m['fence'].model, 3, 15, -Math.PI/2, 2);
-                }
-                
-                // Pintu Keluar
-                addInteractZone(0, 25, 4, 'transit_kota', 'JALAN RAYA', 'Pergi ke Pusat Kota');
-
-            } else if (sceneName === 'kota') {
-                // SCENE 2: PUSAT KOTA (Persimpangan Perempatan)
-                
-                // Garis Trotoar (Pinggiran jalan aspal menggunakan path-long bata oren)
-                for(let i = -30; i <= 30; i+=5) {
-                    if(m['path_trotoar']) {
-                        placeObject(m['path_trotoar'].model, -7, i, 0, 1.5); // Kiri
-                        placeObject(m['path_trotoar'].model, 7, i, 0, 1.5);  // Kanan
-                        placeObject(m['path_trotoar'].model, i, -7, Math.PI/2, 1.5); // Bawah
-                    }
+                // 1. PASANG ASPAL DI TENGAH (X = 0)
+                if(globalModels['aspal']) {
+                    let aspal = globalModels['aspal'].clone();
+                    aspal.scale.set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    aspal.position.set(0, 0, zPos);
+                    scene.add(aspal);
                 }
 
-                // Sudut Kiri Atas (Minimarket type-j)
-                if(m['b_mart']) {
-                    placeObject(m['b_mart'].model, -10, -10, Math.PI/2, 2.8);
-                    addInteractZone(-9, -10, 5, 'minimarket', 'MINI MART', 'Lowongan Shift');
-                }
-                
-                // Sudut Kanan Atas (Bank type-k)
-                if(m['b_bank']) {
-                    placeObject(m['b_bank'].model, 10, -10, -Math.PI/2, 3);
-                    addInteractZone(9, -10, 5, 'bank', 'BANK PUSAT', 'Loket Pembayaran');
+                // 2. PASANG TROTOAR DI KIRI (X = -TILE_SIZE)
+                if(globalModels['trotoar']) {
+                    let trotoarKiri = globalModels['trotoar'].clone();
+                    trotoarKiri.scale.set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    trotoarKiri.position.set(-TILE_SIZE, 0, zPos);
+                    scene.add(trotoarKiri);
                 }
 
-                // Sudut Kiri Bawah (Perkantoran type-q)
-                if(m['b_office']) {
-                    placeObject(m['b_office'].model, -12, 10, Math.PI/2, 3);
+                // 3. PASANG TROTOAR DI KANAN (X = TILE_SIZE)
+                if(globalModels['trotoar']) {
+                    let trotoarKanan = globalModels['trotoar'].clone();
+                    trotoarKanan.scale.set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    trotoarKanan.position.set(TILE_SIZE, 0, zPos);
+                    // Putar 180 derajat agar list oren menghadap aspal (jika perlu)
+                    trotoarKanan.rotation.y = Math.PI; 
+                    scene.add(trotoarKanan);
                 }
+            }
 
-                // Sudut Kanan Bawah (Taman Kecil)
-                if(m['tree']) {
-                    placeObject(m['tree'].model, 10, 10, 0, 2);
-                    placeObject(m['tree'].model, 12, 12, 0, 1.5);
-                }
+            // 4. PASANG RUMAH DI SAMPING TROTOAR KIRI (X = -TILE_SIZE * 2)
+            if(globalModels['rumah']) {
+                let rumah1 = globalModels['rumah'].clone();
+                rumah1.scale.set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                rumah1.position.set(-TILE_SIZE * 2, 0, -TILE_SIZE * 2); // Agak ke depan
+                rumah1.rotation.y = Math.PI / 2; // Pintu menghadap jalan aspal
+                scene.add(rumah1);
+            }
 
-                // Jalan Pulang (Selatan)
-                addInteractZone(0, 25, 5, 'transit_kost', 'GANG KOST', 'Pulang Tidur');
+            // 5. PASANG MINIMARKET DI SAMPING TROTOAR KANAN (X = TILE_SIZE * 2)
+            if(globalModels['minimarket']) {
+                let minimart = globalModels['minimarket'].clone();
+                minimart.scale.set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                minimart.position.set(TILE_SIZE * 2, 0, TILE_SIZE * 2); 
+                minimart.rotation.y = -Math.PI / 2; // Pintu menghadap jalan aspal
+                scene.add(minimart);
             }
         }
 
-        // Fungsi Bantuan untuk meletakkan model 3D dengan mudah
-        function placeObject(modelRef, x, z, rotationY, scale) {
-            let obj = modelRef.clone();
-            obj.position.set(x, 0, z);
-            obj.rotation.y = rotationY; // Diputar agar menghadap ke jalan
-            obj.scale.set(scale, scale, scale);
-            envGroup.add(obj);
-        }
-
-        // Fungsi Bantuan untuk Label UI Mengambang
-        function addInteractZone(x, z, radius, type, title, sub) {
-            interactZones.push({ x: x, z: z, radius: radius, type: type });
-            
-            const container = document.getElementById('labels-container');
-            const el = document.createElement('div');
-            el.className = 'bldg-label';
-            // Khusus transit, warnanya beda (Biru)
-            if(type.includes('transit')) el.style.borderColor = '#38bdf8';
-            
-            el.innerHTML = `${title}<br><span>${sub}</span>`;
-            container.appendChild(el);
-            
-            // Label diletakkan agak tinggi di atas bangunan (Y = 8)
-            uiLabels.push({ element: el, pos: new THREE.Vector3(x, 8, z) });
-        }
-
-
-        function startGame() {
-            document.getElementById('loading-screen').style.display = 'none';
-            document.getElementById('hud').style.display = 'flex';
-            
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-            gameState.isPlaying = true; requestAnimationFrame(gameLoop);
-        }
-
-        // --- KONTROL JOYSTICK ---
+        // --- JOYSTICK LOGIC ---
         const joyZone = document.getElementById('joystick-zone');
         const joyStick = document.getElementById('joystick-stick');
-        const maxJoy = 40; 
+        const maxJoy = 35; 
 
-        joyZone.addEventListener('touchstart', e => {
-            e.preventDefault();
-            if(!joystick.active) {
-                const t = e.changedTouches[0];
-                joystick.active = true; joystick.touchId = t.identifier;
-                updateJoy(t);
-            }
-        }, {passive: false});
-
-        joyZone.addEventListener('touchmove', e => {
-            e.preventDefault();
-            for(let i=0; i<e.changedTouches.length; i++) {
-                if(e.changedTouches[i].identifier === joystick.touchId) updateJoy(e.changedTouches[i]);
-            }
-        }, {passive: false});
-        
-        const endJoy = e => {
-            for(let i=0; i<e.changedTouches.length; i++) {
-                if(e.changedTouches[i].identifier === joystick.touchId) {
-                    joystick.active = false; joystick.touchId = null;
-                    joystick.x = 0; joystick.y = 0;
-                    joyStick.style.transform = `translate(0px, 0px)`;
-                }
-            }
-        };
+        joyZone.addEventListener('touchstart', e => { e.preventDefault(); joystick.active = true; joystick.touchId = e.changedTouches[0].identifier; updateJoy(e.changedTouches[0]); }, {passive: false});
+        joyZone.addEventListener('touchmove', e => { e.preventDefault(); for(let t of e.changedTouches) if(t.identifier === joystick.touchId) updateJoy(t); }, {passive: false});
+        const endJoy = e => { for(let t of e.changedTouches) if(t.identifier === joystick.touchId) { joystick.active = false; joyStick.style.transform = `translate(0,0)`; joystick.x=0; joystick.y=0; } };
         joyZone.addEventListener('touchend', endJoy); joyZone.addEventListener('touchcancel', endJoy);
 
         function updateJoy(t) {
@@ -452,95 +191,19 @@
             joystick.x = dx / maxJoy; joystick.y = dy / maxJoy;
         }
 
-        // --- TOMBOL AKSI & LOGIKA ---
-        const btnAction = document.getElementById('btn-action');
-        btnAction.addEventListener('touchstart', e => {
-            e.preventDefault();
-            if(!btnAction.classList.contains('disabled')) handleInteraction();
-        }, {passive: false});
-
-        function handleInteraction() {
-            if(!activeInteractTarget) return;
-            const t = activeInteractTarget;
-            
-            // Pindah Map (Scene Fade Out)
-            if(t.type === 'transit_kota') { changeScene('kota', 0, 20); return; }
-            if(t.type === 'transit_kost') { changeScene('kost', 0, 20); return; }
-            
-            // Logika Bangunan
-            if(t.type === 'kost') {
-                if(gameState.kostRented) {
-                    openModal("Kamar Kost", `Tidur dan pulihkan tenaga?\nSisa sewa: ${gameState.rentDaysLeft} Hari`, [
-                        { text: "Tidur Pulas", action: () => {
-                            gameState.energy = 100; gameState.inGameMinutes += 8*60; 
-                            showToast("Zzz... Energi Penuh!");
-                        }}, { text: "Batal", cancel: true }
-                    ]);
-                } else {
-                    openModal("Pemilik Kost", "Sewa kamar kost ini?\nTarif: Rp 300.000 untuk 30 Hari.", [
-                        { text: "Sewa (Rp300k)", action: () => {
-                            if(gameState.money >= 300000) {
-                                gameState.money -= 300000; gameState.rentDaysLeft = 30; gameState.kostRented = true;
-                                showToast("Kost berhasil disewa 30 hari!");
-                            } else { showToast("Uangmu tidak cukup!"); }
-                        }}, { text: "Nanti Dulu", cancel: true }
-                    ]);
-                }
-            } else if(t.type === 'minimarket') {
-                openModal("Minimarket", "Kerja Shift 8 Jam?\nGaji: Rp 75.000", [
-                    { text: "Mulai Kerja", action: () => {
-                        gameState.money += 75000; gameState.energy -= 35; gameState.inGameMinutes += (8*60);
-                        showToast("Kerja selesai! +Rp 75.000");
-                    }}, { text: "Batal", cancel: true }
-                ]);
-            } else if(t.type === 'bank') {
-                openModal("Bank Pusat", `Loket Utang Bapak Imron\nSisa: ${formatRp(gameState.debt)}`, [
-                    { text: "Cicil Rp 1 Juta", action: () => {
-                        if(gameState.money >= 1000000) {
-                            gameState.money -= 1000000; gameState.debt -= 1000000;
-                            showToast("Utang berhasil dicicil!");
-                        } else { showToast("Uang kurang!"); }
-                    }}, { text: "Batal", cancel: true }
-                ]);
-            }
-        }
-
-        function openModal(title, desc, buttons) {
-            document.getElementById('modal-title').innerText = title;
-            document.getElementById('modal-desc').innerText = desc;
-            const c = document.getElementById('modal-buttons'); c.innerHTML = '';
-            buttons.forEach(b => {
-                const btn = document.createElement('button');
-                btn.className = `btn-generic ${b.cancel ? 'btn-cancel' : ''}`;
-                btn.innerText = b.text;
-                btn.onclick = () => { document.getElementById('modal-ui').style.display = 'none'; if(b.action) b.action(); };
-                c.appendChild(btn);
-            });
-            document.getElementById('modal-ui').style.display = 'flex';
-        }
-
         // --- MAIN LOOP ---
         function gameLoop() {
             requestAnimationFrame(gameLoop);
-            if(!gameState.isPlaying) return;
-
             const dt = clock.getDelta();
+            
             if(mixer) mixer.update(dt);
 
             if(ismanMesh) {
                 let isMoving = false;
                 if(joystick.active) {
-                    // Kecepatan normal (tidak kesetanan)
-                    let speed = 4.0 * dt; 
-                    
-                    let newX = ismanMesh.position.x + joystick.x * speed;
-                    let newZ = ismanMesh.position.z + joystick.y * speed;
-                    
-                    // Batasan Area berdasarkan Map agar tidak menembus bangunan
-                    let limitX = gameState.currentScene === 'kost' ? 2.5 : 9;
-                    if(newX > -limitX && newX < limitX) ismanMesh.position.x = newX;
-                    if(newZ > -25 && newZ < 28) ismanMesh.position.z = newZ;
-                    
+                    let speed = 5.0 * dt; 
+                    ismanMesh.position.x += joystick.x * speed;
+                    ismanMesh.position.z += joystick.y * speed;
                     ismanMesh.rotation.y = Math.atan2(joystick.x, joystick.y);
                     isMoving = true;
                 }
@@ -553,71 +216,12 @@
                     }
                 }
 
-                // KAMERA ISOMETRIC MURNI (Top-Down)
-                // Tinggi di atas (Y=20), sedikit di belakang (Z=15)
-                const targetCamX = ismanMesh.position.x;
-                const targetCamY = ismanMesh.position.y + 20;
-                const targetCamZ = ismanMesh.position.z + 18;
-                
-                camera.position.x += (targetCamX - camera.position.x) * 0.1; 
-                camera.position.y += (targetCamY - camera.position.y) * 0.1;
-                camera.position.z += (targetCamZ - camera.position.z) * 0.1;
-                
-                // Kamera menatap tajam lurus ke arah Isman di bawah
+                // Kamera menyorot dari atas-belakang karakter dengan jarak yang nyaman
+                camera.position.x += (ismanMesh.position.x - camera.position.x) * 0.1;
+                camera.position.y = ismanMesh.position.y + 12; // Tinggi Kamera
+                camera.position.z += (ismanMesh.position.z + 12 - camera.position.z) * 0.1; // Jarak Belakang
                 camera.lookAt(ismanMesh.position.x, ismanMesh.position.y, ismanMesh.position.z);
-
-                // Update Posisi Label UI Mengambang
-                uiLabels.forEach(label => {
-                    let vec = label.pos.clone();
-                    vec.project(camera); // Proyeksi 3D ke Layar 2D
-                    
-                    if(vec.z > 1) { label.element.style.opacity = 0; return; }
-                    
-                    let x = (vec.x *  .5 + .5) * window.innerWidth;
-                    let y = (vec.y * -.5 + .5) * window.innerHeight;
-                    label.element.style.left = `${x}px`;
-                    label.element.style.top = `${y}px`;
-                    label.element.style.opacity = 1;
-                });
-
-                // Cek Area Interaksi
-                activeInteractTarget = null;
-                for(let zone of interactZones) {
-                    let dist = Math.hypot(ismanMesh.position.x - zone.x, ismanMesh.position.z - zone.z);
-                    if(dist < zone.radius) { activeInteractTarget = zone; break; }
-                }
-                
-                if(activeInteractTarget) {
-                    btnAction.classList.remove('disabled');
-                    if(activeInteractTarget.type.includes('transit')) btnAction.innerText = "PERGI";
-                    else btnAction.innerText = "MASUK";
-                } else {
-                    btnAction.classList.add('disabled'); btnAction.innerText = "AKSI";
-                }
             }
-
-            // Update HUD
-            document.getElementById('ui-money').innerText = formatRp(Math.floor(gameState.money));
-            document.getElementById('ui-debt').innerText = formatRp(Math.floor(gameState.debt));
-            document.getElementById('energy-bar').style.width = Math.max(0, gameState.energy) + '%';
-            
-            gameState.inGameMinutes += dt * 0.5;
-            let h = Math.floor(gameState.inGameMinutes / 60) % 24;
-            let m = Math.floor(gameState.inGameMinutes % 60);
-            document.getElementById('ui-clock').innerText = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
-            
-            if(gameState.inGameMinutes >= 24 * 60) { 
-                gameState.inGameMinutes = 0; 
-                gameState.day++; 
-                if(gameState.rentDaysLeft > 0) {
-                    gameState.rentDaysLeft--;
-                    if(gameState.rentDaysLeft === 0) {
-                        gameState.kostRented = false;
-                        showToast("Masa sewa kost habis!");
-                    }
-                }
-            }
-            document.getElementById('ui-day').innerText = gameState.day;
 
             renderer.render(scene, camera);
         }
