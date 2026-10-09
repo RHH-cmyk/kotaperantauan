@@ -284,10 +284,9 @@ loader.load(base + "Isman.glb", gltf => {
   console.error(error);
 });
 
-/* Zona terlarang: kost, got, jalan */
+/* Collision hanya untuk bangunan.
+   Got dan jalan bukan penghalang gerak, supaya Isman bisa melewatinya. */
 boxObstacle(0, 0, 12, 5);
-boxObstacle(0, 8.55, 44, 0.7);
-boxObstacle(0, 12, 44, 8);
 
 /* JOYSTICK */
 let joyActive = false;
@@ -382,7 +381,7 @@ function animate() {
         character.position.x = THREE.MathUtils.clamp(nx, -19, 19);
       }
       if (!collides(character.position.x, nz)) {
-        character.position.z = THREE.MathUtils.clamp(nz, 9.5, 16);
+        character.position.z = THREE.MathUtils.clamp(nz, -2.5, 16);
       }
 
       character.rotation.y = Math.atan2(dx, dz);
