@@ -1,771 +1,905 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kota Perantauan V1.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700&display=swap');
 
-<title>Kota Perantauan</title>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #000;
+            color: #e2e8f0;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            touch-action: none;
+            user-select: none;
+        }
 
-<style>
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-}
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-color: #0f172a;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-html,
-body {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background: #111;
-    touch-action: none;
-}
+        /* Layar akan menjaga aspect ratio seperti game konsol, fill screen max */
+        #game-view {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 1280px;
+            aspect-ratio: 16/9;
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(0,0,0,1);
+        }
 
-canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-}
+        @media (min-aspect-ratio: 16/9) {
+            #game-view { height: 100vh; width: calc(100vh * 16 / 9); }
+        }
+        @media (max-aspect-ratio: 16/9) {
+            #game-view { width: 100vw; height: calc(100vw * 9 / 16); }
+        }
 
-/* JOYSTICK */
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated; /* Agar gaya retro lebih tajam */
+        }
 
-#joystick {
-    position: fixed;
-    left: 25px;
-    bottom: 25px;
+        .screen-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
 
-    width: 150px;
-    height: 150px;
+        /* Main Menu */
+        #main-menu { background: linear-gradient(to bottom, #1e293b, #0f172a); z-index: 100; }
+        .game-title { font-family: 'Press Start 2P', cursive; font-size: clamp(1.5rem, 4vw, 3rem); color: #fbbf24; text-shadow: 4px 4px 0 #92400e; margin-bottom: 2rem; text-align: center; line-height: 1.5; }
+        .btn-menu {
+            background: linear-gradient(to bottom, #3b82f6, #2563eb); border: 4px solid #93c5fd;
+            color: white; font-family: 'Press Start 2P', cursive; font-size: clamp(0.7rem, 2vw, 1.2rem);
+            padding: 1rem 2rem; border-radius: 12px; cursor: pointer; box-shadow: 0 8px 0 #1e3a8a, 0 15px 20px rgba(0,0,0,0.5);
+            transition: all 0.1s; margin: 10px;
+        }
+        .btn-menu:active { transform: translateY(8px); box-shadow: 0 0 0 #1e3a8a; }
 
-    border-radius: 50%;
+        /* Cutscene */
+        #cutscene { background-color: black; z-index: 90; display: none; padding: 2rem; text-align: center; }
+        .cutscene-text { font-family: 'Nunito', sans-serif; font-size: clamp(1.2rem, 3vw, 2rem); color: white; opacity: 0; transition: opacity 1s ease-in-out; max-width: 800px; line-height: 1.6; }
 
-    background: rgba(0,0,0,.28);
-    border: 3px solid rgba(255,255,255,.25);
+        /* HUD (Heads Up Display) */
+        #hud { z-index: 50; pointer-events: none; justify-content: space-between; display: none; }
+        .top-bar { width: 100%; display: flex; justify-content: space-between; padding: 1rem; pointer-events: auto; }
+        
+        .hud-panel { background: rgba(15,23,42,0.85); border: 2px solid #475569; padding: 0.5rem 1rem; border-radius: 12px; backdrop-filter: blur(4px); box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
+        .hud-stats { display: flex; gap: 1.5rem; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; color: white; align-items: center; }
+        .stat-item { display: flex; align-items: center; gap: 0.5rem; }
+        
+        .bar-bg { width: 60px; height: 10px; background: #334155; border-radius: 5px; overflow: hidden; border: 1px solid #000; }
+        .bar-fill { height: 100%; transition: width 0.3s, background-color 0.3s; }
+        #energy-bar { background: #facc15; }
+        #mood-bar { background: #38bdf8; }
+        
+        .hud-time { text-align: center; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; }
+        .hud-debt { text-align: right; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; color: #ef4444; margin-top: 5px;}
 
-    z-index: 20;
+        /* Controls */
+        .controls-area { width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 1rem 2vw; pointer-events: none; padding-bottom: 2rem;}
+        
+        .joystick-base {
+            width: 120px; height: 120px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 50%; display: flex; justify-content: center; align-items: center; pointer-events: auto;
+        }
+        .joystick-stick {
+            width: 50px; height: 50px; background: rgba(255,255,255,0.7); border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none;
+        }
 
-    touch-action: none;
-}
+        .btn-action {
+            width: 80px; height: 80px; background: linear-gradient(135deg, #ef4444, #b91c1c); border: 4px solid #fca5a5;
+            border-radius: 50%; color: white; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; font-weight: bold;
+            display: flex; justify-content: center; align-items: center; pointer-events: auto;
+            box-shadow: 0 6px 0 #7f1d1d, 0 10px 15px rgba(0,0,0,0.5); transition: all 0.1s;
+        }
+        .btn-action:active:not(.disabled) { transform: translateY(6px); box-shadow: 0 0 0 #7f1d1d; }
+        .btn-action.disabled { filter: grayscale(1); opacity: 0.5; pointer-events: none; }
 
-#stick {
-    position: absolute;
+        /* Generic Modal */
+        .modal-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; pointer-events: auto;}
+        .modal-box { background: #1e293b; border: 4px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; max-width: 90%; width: 400px; text-align: center; font-family: 'Nunito', sans-serif; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+        .modal-title { font-family: 'Press Start 2P', cursive; font-size: 0.9rem; color: #fbbf24; margin-bottom: 1rem; line-height: 1.4;}
+        .modal-desc { font-size: 1rem; margin-bottom: 1.5rem; color: #e2e8f0; line-height: 1.5; white-space: pre-wrap;}
+        .modal-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;}
+        .btn-generic { background: #3b82f6; color: white; border: 2px solid #93c5fd; padding: 0.5rem 1rem; border-radius: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; cursor: pointer; }
+        .btn-generic:active { transform: scale(0.95); }
+        .btn-cancel { background: #ef4444; border-color: #fca5a5; }
 
-    width: 65px;
-    height: 65px;
-
-    left: 50%;
-    top: 50%;
-
-    transform: translate(-50%, -50%);
-
-    border-radius: 50%;
-
-    background: rgba(255,255,255,.55);
-
-    border: 3px solid rgba(255,255,255,.8);
-
-    box-shadow: 0 3px 10px rgba(0,0,0,.3);
-
-    pointer-events: none;
-}
-</style>
+        .toast { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); background: rgba(30,58,138,0.9); border: 2px solid #60a5fa; color: white; padding: 0.5rem 1rem; border-radius: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; z-index: 80; pointer-events: none; opacity: 0; transition: opacity 0.3s; text-align: center;}
+    </style>
 </head>
-
 <body>
 
-<canvas id="game"></canvas>
-
-<div id="joystick">
-    <div id="stick"></div>
-</div>
-
-<script>
-
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-
-const scene = new Image();
-scene.src = "scene1-kost.png";
-
-const playerImage = new Image();
-playerImage.src = "player.png";
-
-
-/* =========================
-   CANVAS
-========================= */
-
-function resize() {
-
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-}
-
-window.addEventListener("resize", resize);
-
-resize();
-
-
-/* =========================
-   WORLD
-========================= */
-
-const world = {
-
-    width: 1200,
-    height: 900
-
-};
-
-
-/* =========================
-   PLAYER
-========================= */
-
-const player = {
-
-    x: 600,
-    y: 675,
-
-    speed: 3,
-
-    width: 90,
-    height: 180,
-
-    direction: 0,
-
-    frame: 0,
-    frameTimer: 0,
-
-    moving: false
-
-};
-
-
-/* =========================
-   JOYSTICK
-========================= */
-
-const joystick =
-    document.getElementById("joystick");
-
-const stick =
-    document.getElementById("stick");
-
-
-let joystickActive = false;
-
-let joystickX = 0;
-let joystickY = 0;
-
-
-const joystickRadius = 75;
-
-
-function updateJoystick(e) {
-
-    const rect =
-        joystick.getBoundingClientRect();
-
-    const centerX =
-        rect.left +
-        rect.width / 2;
-
-    const centerY =
-        rect.top +
-        rect.height / 2;
-
-
-    let dx =
-        e.clientX -
-        centerX;
-
-
-    let dy =
-        e.clientY -
-        centerY;
-
-
-    const distance =
-        Math.sqrt(
-            dx * dx +
-            dy * dy
-        );
-
-
-    if (distance > joystickRadius) {
-
-        dx =
-            dx /
-            distance *
-            joystickRadius;
-
-        dy =
-            dy /
-            distance *
-            joystickRadius;
-
-    }
-
-
-    joystickX =
-        dx /
-        joystickRadius;
-
-
-    joystickY =
-        dy /
-        joystickRadius;
-
-
-    stick.style.left =
-        `calc(50% + ${dx}px)`;
-
-
-    stick.style.top =
-        `calc(50% + ${dy}px)`;
-
-}
-
-
-function resetJoystick() {
-
-    joystickActive = false;
-
-    joystickX = 0;
-    joystickY = 0;
-
-    stick.style.left = "50%";
-    stick.style.top = "50%";
-
-}
-
-
-joystick.addEventListener(
-    "pointerdown",
-    function(e) {
-
-        e.preventDefault();
-
-        joystickActive = true;
-
-        joystick.setPointerCapture(
-            e.pointerId
-        );
-
-        updateJoystick(e);
-
-    }
-);
-
-
-joystick.addEventListener(
-    "pointermove",
-    function(e) {
-
-        if (!joystickActive) {
-            return;
+    <div id="game-container">
+        <div id="game-view">
+            <!-- Canvas -->
+            <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+            <!-- Main Menu -->
+            <div id="main-menu" class="screen-layer">
+                <div class="game-title">KOTA<br>PERANTAUAN</div>
+                <div style="font-family: 'Nunito', sans-serif; color: #94a3b8; margin-bottom: 2rem;">Versi 1.0 - Bertahan Hidup & Lunasi Utang</div>
+                <button class="btn-menu" onclick="startCutscene()">Mulai Perantauan</button>
+                <button class="btn-menu" style="background: #475569; border-color: #94a3b8; box-shadow: 0 8px 0 #1e293b;" onclick="toggleFullScreen()">Full Screen</button>
+            </div>
+
+            <!-- Cutscene Layer -->
+            <div id="cutscene" class="screen-layer">
+                <div id="cs-text" class="cutscene-text"></div>
+            </div>
+
+            <!-- HUD (Heads Up Display) -->
+            <div id="hud" class="screen-layer">
+                <div class="top-bar">
+                    <div class="hud-panel hud-stats">
+                        <div class="stat-item">💰 <span id="ui-money">Rp 1.000.000</span></div>
+                        <div class="stat-item">⚡ <div class="bar-bg"><div id="energy-bar" class="bar-fill" style="width: 100%;"></div></div></div>
+                        <div class="stat-item">😊 <div class="bar-bg"><div id="mood-bar" class="bar-fill" style="width: 100%;"></div></div></div>
+                    </div>
+                    <div class="hud-panel hud-time">
+                        <div style="color: #fbbf24; margin-bottom: 5px;">HARI <span id="ui-day">1</span> / 365</div>
+                        <div id="ui-clock" style="font-size: 0.8rem; margin-bottom: 5px;">08:00</div>
+                        <div class="hud-debt">UTANG: <span id="ui-debt">Rp 50 Juta</span></div>
+                    </div>
+                </div>
+
+                <div class="controls-area">
+                    <div class="joystick-base" id="joystick-zone">
+                        <div class="joystick-stick" id="joystick-stick"></div>
+                    </div>
+                    <div class="btn-action disabled" id="btn-action">AKSI</div>
+                </div>
+            </div>
+
+            <!-- Toast Notification -->
+            <div id="toast" class="toast">Pesan di sini</div>
+
+            <!-- Generic Modal -->
+            <div id="modal-ui" class="modal-overlay">
+                <div class="modal-box">
+                    <div class="modal-title" id="modal-title">Judul</div>
+                    <div class="modal-desc" id="modal-desc">Deskripsi...</div>
+                    <div class="modal-buttons" id="modal-buttons">
+                        <!-- Buttons injected dynamically -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Data Game Utama
+        const gameState = {
+            isPlaying: false,
+            money: 1000000, // Modal awal 1 Juta
+            debt: 50000000, // Utang 50 Juta
+            energy: 100,
+            mood: 100,
+            
+            day: 1,
+            maxDays: 365,
+            inGameMinutes: 8 * 60, // Mulai jam 08:00 pagi
+            
+            // Status Gelandangan / Kost
+            kostType: null, // 'triplek', 'standar', 'vip'
+            kostPaidUntil: 0, // Hari ke berapa kost habis
+            
+            // Pekerjaan
+            jobId: null,
+            jobStartDay: 0, // Hari kapan bisa mulai kerja (untuk delay RNG)
+            jobWorkedToday: false,
+
+            currentScene: 'terminal', // Map pertama
+            fadeAlpha: 1, // Untuk transisi
+            isFading: false,
+            targetWarp: null
+        };
+
+        // Database Pekerjaan
+        const JOB_DB = {
+            'cuci_piring': { name: 'Tukang Cuci Piring', salary: 40000, energy: -40, mood: -10, chance: 0.8, reqHours: 6, open: 17, close: 24, desc: 'Kerja di Pasar Malam. Sangat melelahkan.' },
+            'kuli': { name: 'Kuli Panggul', salary: 80000, energy: -70, mood: -5, chance: 0.7, reqHours: 8, open: 6, close: 18, desc: 'Kerja kasar di Terminal. Menguras banyak tenaga.' },
+            'minimarket': { name: 'Pelayan Minimarket', salary: 75000, energy: -30, mood: -15, chance: 0.5, reqHours: 8, open: 0, close: 24, desc: 'Kerja Shift 24 Jam. Stabil tapi membosankan.' },
+            'kurir': { name: 'Kurir Paket', salary: 100000, energy: -40, mood: -20, chance: 0.4, reqHours: 8, open: 8, close: 17, desc: 'Kerja keliling kota siang hari.' },
+            'admin': { name: 'Staff Admin', salary: 200000, energy: -20, mood: -40, chance: 0.15, reqHours: 9, open: 8, close: 17, desc: 'Kerja kantoran di area Bisnis. Gaji besar, rawan stres.' }
+        };
+
+        // Database Kost
+        const KOST_DB = {
+            'triplek': { name: 'Kost Triplek', price: 300000, energyRec: 60, moodRec: -10, desc: 'Area Kumuh. Panas dan berisik.' },
+            'standar': { name: 'Kost Standar', price: 600000, energyRec: 90, moodRec: 0, desc: 'Area Perumahan biasa. Nyaman.' },
+            'vip': { name: 'Kost VIP', price: 1200000, energyRec: 100, moodRec: 20, desc: 'Dekat kawasan bisnis. Fasilitas lengkap.' }
+        };
+
+        // Player Entity
+        const player = {
+            x: 600, y: 500, w: 32, h: 48, speed: 5, currentSpeed: 5,
+            vx: 0, vy: 0, facing: 'down', walkCycle: 0, isMoving: false
+        };
+        const camera = { x: 0, y: 0, w: canvas.width, h: canvas.height };
+
+        const cutsceneTexts = [
+            "Desa Lebak Sunting, sebuah desa kecil yang tenang...",
+            "Namun ketenangan itu hancur saat Ibu meninggal kecelakaan...",
+            "...saat beliau sedang berjualan tape ketan keliling.",
+            "Kini, Bapak terbaring tak berdaya karena stroke.",
+            "Bapak Imron: 'Isman, maafkan bapak nak...'",
+            "Bapak Imron: 'Bapak punya utang rentenir 50 Juta untuk biaya rumah sakit ibu...'",
+            "Bapak Imron: 'Mereka memberi waktu 1 tahun, atau rumah kita disita.'",
+            "Isman: 'Aku harus merantau ke kota. Semoga di sana aku bisa mencari uang...'"
+        ];
+        let csIndex = 0;
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error full screen: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
         }
 
-        e.preventDefault();
-
-        updateJoystick(e);
-
-    }
-);
-
-
-joystick.addEventListener(
-    "pointerup",
-    function(e) {
-
-        e.preventDefault();
-
-        resetJoystick();
-
-    }
-);
-
-
-joystick.addEventListener(
-    "pointercancel",
-    function() {
-
-        resetJoystick();
-
-    }
-);
-
-
-/* =========================
-   KEYBOARD
-========================= */
-
-const keys = {
-
-    up: false,
-    down: false,
-    left: false,
-    right: false
-
-};
-
-
-window.addEventListener(
-    "keydown",
-    function(e) {
-
-        if (
-            e.key === "ArrowUp" ||
-            e.key === "w"
-        ) {
-            keys.up = true;
+        function startCutscene() {
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('cutscene').style.display = 'flex';
+            csIndex = 0;
+            showNextCutscene();
         }
 
-        if (
-            e.key === "ArrowDown" ||
-            e.key === "s"
-        ) {
-            keys.down = true;
+        function showNextCutscene() {
+            const csText = document.getElementById('cs-text');
+            if (csIndex < cutsceneTexts.length) {
+                csText.style.opacity = 0;
+                setTimeout(() => {
+                    csText.innerText = cutsceneTexts[csIndex];
+                    csText.style.opacity = 1;
+                    csIndex++;
+                    setTimeout(showNextCutscene, 4000); // 4 detik per teks
+                }, 1000);
+            } else {
+                csText.style.opacity = 0;
+                setTimeout(startGame, 1000);
+            }
         }
 
-        if (
-            e.key === "ArrowLeft" ||
-            e.key === "a"
-        ) {
-            keys.left = true;
+        const keys = {};
+        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+        const joystick = { active: false, inputX: 0, inputY: 0, touchId: null };
+        const joyZone = document.getElementById('joystick-zone');
+        const joyStick = document.getElementById('joystick-stick');
+        const btnAction = document.getElementById('btn-action');
+        const maxJoy = 40;
+
+        // Joystick Handlers
+        joyZone.addEventListener('touchstart', e => {
+            e.preventDefault();
+            if(!joystick.active) {
+                const touch = e.changedTouches[0];
+                joystick.active = true; joystick.touchId = touch.identifier;
+                updateJoyTouch(touch);
+            }
+        }, {passive: false});
+
+        joyZone.addEventListener('touchmove', e => {
+            e.preventDefault();
+            for(let i=0; i<e.changedTouches.length; i++) {
+                if(e.changedTouches[i].identifier === joystick.touchId) {
+                    updateJoyTouch(e.changedTouches[i]);
+                }
+            }
+        }, {passive: false});
+
+        const endJoy = (e) => {
+            for(let i=0; i<e.changedTouches.length; i++) {
+                if(e.changedTouches[i].identifier === joystick.touchId) {
+                    joystick.active = false; joystick.touchId = null;
+                    joystick.inputX = 0; joystick.inputY = 0;
+                    joyStick.style.transform = `translate(0px, 0px)`;
+                }
+            }
+        };
+        joyZone.addEventListener('touchend', endJoy); joyZone.addEventListener('touchcancel', endJoy);
+
+        function updateJoyTouch(touch) {
+            const rect = joyZone.getBoundingClientRect();
+            const cx = rect.left + rect.width/2; const cy = rect.top + rect.height/2;
+            let dx = touch.clientX - cx; let dy = touch.clientY - cy;
+            const dist = Math.hypot(dx, dy);
+            if(dist > maxJoy) { dx = (dx/dist)*maxJoy; dy = (dy/dist)*maxJoy; }
+            joyStick.style.transform = `translate(${dx}px, ${dy}px)`;
+            joystick.inputX = dx/maxJoy; joystick.inputY = dy/maxJoy;
         }
 
-        if (
-            e.key === "ArrowRight" ||
-            e.key === "d"
-        ) {
-            keys.right = true;
+        // Action Button Handler (Independent Touch)
+        let actionTouchId = null;
+        btnAction.addEventListener('touchstart', e => {
+            e.preventDefault();
+            if(btnAction.classList.contains('disabled')) return;
+            const touch = e.changedTouches[0];
+            actionTouchId = touch.identifier;
+            btnAction.style.transform = 'translateY(6px)';
+            interact(); // Call interaction logic
+        }, {passive: false});
+
+        btnAction.addEventListener('touchend', e => {
+            for(let i=0; i<e.changedTouches.length; i++) {
+                if(e.changedTouches[i].identifier === actionTouchId) {
+                    btnAction.style.transform = 'none';
+                    actionTouchId = null;
+                }
+            }
+        });
+
+        // Helper fungsi gambar
+        function drawGrass(ctx, w, h) { ctx.fillStyle = '#166534'; ctx.fillRect(0,0,w,h); }
+        function drawAsphalt(ctx, w, h) { ctx.fillStyle = '#334155'; ctx.fillRect(0,0,w,h); }
+        function drawPaving(ctx, w, h) { ctx.fillStyle = '#64748b'; ctx.fillRect(0,0,w,h); }
+        function drawTree(ctx, x, y) {
+            ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x, y+10, 30, 10, 0, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#78350f'; ctx.fillRect(x-5, y-20, 10, 30);
+            ctx.fillStyle = '#065f46'; ctx.beginPath(); ctx.arc(x, y-30, 35, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#10b981'; ctx.beginPath(); ctx.arc(x-5, y-40, 25, 0, Math.PI*2); ctx.fill();
         }
 
-    }
-);
+        const scenes = {
+            'terminal': {
+                w: 1600, h: 1000,
+                bg: (ctx, w, h) => { 
+                    drawAsphalt(ctx, w, h); 
+                    // Zebra cross
+                    ctx.fillStyle='white'; for(let i=0; i<w; i+=80) ctx.fillRect(i, h/2 - 5, 40, 10);
+                },
+                objs: [
+                    { type: 'warp', x: 0, y: 300, w: 50, h: 400, target: 'gang_kost', tx: 1400, ty: 500, label: '⬅ Ke Area Kost' },
+                    { type: 'warp', x: 1550, y: 300, w: 50, h: 400, target: 'pasar', tx: 100, ty: 500, label: 'Ke Pasar Malam ➡' },
+                    { type: 'building', id: 'job_kuli', name: 'Mandor Terminal', x: 700, y: 150, w: 200, h: 150, color: '#b45309', interact: 'job', jobId: 'kuli' },
+                    { type: 'bus', x: 300, y: 600, w: 250, h: 120, color: '#0ea5e9' },
+                    { type: 'bus', x: 1000, y: 600, w: 250, h: 120, color: '#ef4444' }
+                ],
+                decos: [ {type:'tree', x:100, y:100}, {type:'tree', x:1400, y:100} ]
+            },
+            'gang_kost': {
+                w: 1500, h: 900,
+                bg: (ctx, w, h) => { 
+                    drawPaving(ctx, w, h);
+                    ctx.fillStyle = '#475569'; ctx.fillRect(0, 400, w, 100); // Jalan setapak
+                },
+                objs: [
+                    { type: 'warp', x: 1450, y: 350, w: 50, h: 200, target: 'terminal', tx: 100, ty: 500, label: 'Ke Terminal ➡' },
+                    { type: 'building', id: 'kost_triplek', name: 'Kost Triplek', x: 150, y: 150, w: 200, h: 200, color: '#a16207', interact: 'kost', kostId: 'triplek' },
+                    { type: 'building', id: 'kost_standar', name: 'Kost Standar', x: 550, y: 150, w: 250, h: 250, color: '#64748b', interact: 'kost', kostId: 'standar' },
+                    { type: 'building', id: 'kost_vip', name: 'Kost VIP', x: 1050, y: 100, w: 300, h: 300, color: '#f59e0b', interact: 'kost', kostId: 'vip' },
+                ],
+                decos: [ {type:'lamp', x:450, y:400}, {type:'lamp', x:950, y:400} ]
+            },
+            'pasar': {
+                w: 1600, h: 1000,
+                bg: (ctx, w, h) => { drawPaving(ctx, w, h); },
+                objs: [
+                    { type: 'warp', x: 0, y: 400, w: 50, h: 200, target: 'terminal', tx: 1450, ty: 500, label: '⬅ Ke Terminal' },
+                    { type: 'warp', x: 1550, y: 400, w: 50, h: 200, target: 'bisnis', tx: 100, ty: 500, label: 'Ke Area Bisnis ➡' },
+                    { type: 'building', id: 'job_cuci', name: 'Pecel Lele (Malam)', x: 300, y: 200, w: 250, h: 200, color: '#dc2626', interact: 'job_eat', jobId: 'cuci_piring' },
+                    { type: 'building', id: 'job_mini', name: 'Minimarket 24 Jam', x: 900, y: 150, w: 300, h: 250, color: '#38bdf8', interact: 'job_buy', jobId: 'minimarket' },
+                ],
+                decos: [ {type:'lamp', x:700, y:450}, {type:'tree', x: 200, y:150}, {type:'tree', x: 1300, y:150} ]
+            },
+            'bisnis': {
+                w: 1800, h: 1200,
+                bg: (ctx, w, h) => { drawAsphalt(ctx, w, h); },
+                objs: [
+                    { type: 'warp', x: 0, y: 400, w: 50, h: 300, target: 'pasar', tx: 1450, ty: 500, label: '⬅ Ke Pasar' },
+                    { type: 'warp', x: 800, y: 0, w: 300, h: 50, target: 'taman', tx: 800, ty: 1000, label: '⬆ Ke Taman Kota' },
+                    { type: 'building', id: 'bank', name: 'BANK (Bayar Utang)', x: 300, y: 100, w: 400, h: 300, color: '#0ea5e9', interact: 'bank' },
+                    { type: 'building', id: 'job_admin', name: 'Gedung Perkantoran', x: 1100, y: 100, w: 400, h: 400, color: '#94a3b8', interact: 'job', jobId: 'admin' },
+                ],
+                decos: [ {type:'lamp', x:400, y:500}, {type:'lamp', x:1100, y:600} ]
+            },
+            'taman': {
+                w: 1600, h: 1200,
+                bg: (ctx, w, h) => { drawGrass(ctx, w, h); ctx.fillStyle='#cbd5e1'; ctx.beginPath(); ctx.arc(800, 600, 200, 0, Math.PI*2); ctx.fill(); },
+                objs: [
+                    { type: 'warp', x: 700, y: 1150, w: 200, h: 50, target: 'bisnis', tx: 950, ty: 150, label: '⬇ Ke Area Bisnis' },
+                    { type: 'building', id: 'bench', name: 'Bangku Taman (Nongkrong)', x: 700, y: 550, w: 100, h: 50, color: '#78350f', interact: 'relax' },
+                    { type: 'building', id: 'job_kurir', name: 'Pangkalan Kurir', x: 200, y: 200, w: 200, h: 200, color: '#f59e0b', interact: 'job', jobId: 'kurir' },
+                ],
+                decos: [ {type:'tree', x:300, y:800}, {type:'tree', x:1300, y:800}, {type:'tree', x:1200, y:300} ]
+            }
+        };
 
+        function drawPlayer(ctx) {
+            let px = player.x + player.w/2; let py = player.y + player.h;
+            let bounce = player.isMoving ? Math.abs(Math.sin(player.walkCycle)) * 5 : 0;
+            let swing = player.isMoving ? Math.sin(player.walkCycle) : 0;
+            
+            const skin = '#fcd34d', shirt = '#ea580c', pants = '#1e293b';
 
-window.addEventListener(
-    "keyup",
-    function(e) {
+            // Bayangan
+            ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(px, py, 16, 6, 0, 0, Math.PI*2); ctx.fill();
 
-        if (
-            e.key === "ArrowUp" ||
-            e.key === "w"
-        ) {
-            keys.up = false;
+            let headY = py - 40 - bounce; let bodyY = py - 25 - bounce;
+
+            const drawLimb = (offsetX, yOffset, color, isForward, isLeg) => {
+                let s = isForward ? swing * 10 : -swing * 10;
+                ctx.fillStyle = color; ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
+                ctx.beginPath();
+                if(isLeg) ctx.roundRect(px + offsetX - 5, bodyY + 12, 10, 15, 3);
+                else ctx.roundRect(px + offsetX - 4, bodyY, 8, 14, 3);
+                ctx.fill(); ctx.stroke();
+                
+                // Tangan/Kaki bawah
+                ctx.fillStyle = isLeg ? '#334155' : skin;
+                ctx.beginPath();
+                ctx.arc(px + offsetX, bodyY + (isLeg ? 27 : 14) + s, 4, 0, Math.PI*2);
+                ctx.fill(); ctx.stroke();
+            };
+
+            const drawBody = () => {
+                ctx.fillStyle = shirt; ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.roundRect(px - 10, bodyY, 20, 16, 4); ctx.fill(); ctx.stroke();
+            };
+
+            const drawHead = (facing) => {
+                ctx.fillStyle = skin; ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.roundRect(px - 16, headY - 16, 32, 32, 10); ctx.fill(); ctx.stroke();
+                
+                // Mata
+                ctx.fillStyle = 'black';
+                if(facing === 'down') { ctx.fillRect(px-8, headY-2, 4, 6); ctx.fillRect(px+4, headY-2, 4, 6); }
+                else if(facing === 'right') { ctx.fillRect(px+6, headY-2, 4, 6); }
+                else if(facing === 'left') { ctx.fillRect(px-10, headY-2, 4, 6); }
+                
+                // Rambut
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                if(facing==='down') { ctx.arc(px, headY-6, 17, Math.PI, 0); ctx.lineTo(px+17, headY+2); ctx.lineTo(px, headY-12); ctx.lineTo(px-17, headY+2); }
+                else if(facing==='up') { ctx.arc(px, headY, 17, 0, Math.PI*2); }
+                else { ctx.arc(px, headY-4, 17, Math.PI, 0); } // Samping simple
+                ctx.fill(); ctx.stroke();
+            };
+
+            // Urutan render berdasarkan arah
+            if (player.facing === 'up') { drawLimb(-12,0,shirt,true,false); drawLimb(12,0,shirt,false,false); drawLimb(-6,12,pants,false,true); drawLimb(6,12,pants,true,true); drawBody(); drawHead('up'); }
+            else if (player.facing === 'down') { drawLimb(-6,12,pants,false,true); drawLimb(6,12,pants,true,true); drawBody(); drawHead('down'); drawLimb(-12,0,shirt,true,false); drawLimb(12,0,shirt,false,false); }
+            else if (player.facing === 'right') { drawLimb(-5,0,shirt,false,false); drawLimb(-4,12,pants,false,true); drawLimb(4,12,pants,true,true); drawBody(); drawHead('right'); drawLimb(5,0,shirt,true,false); }
+            else if (player.facing === 'left') { drawLimb(5,0,shirt,false,false); drawLimb(4,12,pants,false,true); drawLimb(-4,12,pants,true,true); drawBody(); drawHead('left'); drawLimb(-5,0,shirt,true,false); }
         }
 
-        if (
-            e.key === "ArrowDown" ||
-            e.key === "s"
-        ) {
-            keys.down = false;
+        let interactTarget = null;
+
+        function drawWorld() {
+            const scene = scenes[gameState.currentScene];
+            scene.bg(ctx, scene.w, scene.h);
+
+            let drawQueue = [];
+            for(let b of scene.objs) {
+                if(b.type === 'warp') {
+                    ctx.fillStyle = 'rgba(255,255,0,0.2)'; ctx.fillRect(b.x, b.y, b.w, b.h);
+                    ctx.fillStyle = 'yellow'; ctx.font = '12px "Press Start 2P"'; ctx.fillText(b.label, b.x + 10, b.y + b.h/2);
+                    continue; // Skip Y-sort
+                }
+                drawQueue.push({ type: b.type, obj: b, y: b.y + b.h });
+            }
+            if(scene.decos) {
+                for(let d of scene.decos) drawQueue.push({ type: 'deco', obj: d, y: d.y });
+            }
+            drawQueue.push({ type: 'player', y: player.y + player.h });
+
+            drawQueue.sort((a,b) => a.y - b.y);
+
+            interactTarget = null;
+            let pCX = player.x + player.w/2; let pCY = player.y + player.h;
+
+            for(let item of drawQueue) {
+                if(item.type === 'player') drawPlayer(ctx);
+                else if(item.type === 'deco' && item.obj.type === 'tree') drawTree(ctx, item.obj.x, item.obj.y);
+                else if(item.type === 'deco' && item.obj.type === 'lamp') {
+                    ctx.fillStyle='#475569'; ctx.fillRect(item.obj.x-3, item.obj.y-80, 6, 80);
+                    ctx.fillStyle='#fef08a'; ctx.fillRect(item.obj.x-10, item.obj.y-85, 20, 10);
+                }
+                else if(item.type === 'bus') {
+                    ctx.fillStyle = item.obj.color; ctx.fillRect(item.obj.x, item.obj.y, item.obj.w, item.obj.h);
+                    ctx.fillStyle = '#1e293b'; ctx.fillRect(item.obj.x+10, item.obj.y+20, 40, 30); ctx.fillRect(item.obj.x+60, item.obj.y+20, 40, 30);
+                }
+                else if(item.type === 'building') {
+                    let b = item.obj;
+                    // Shadow
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(b.x+10, b.y+10, b.w, b.h);
+                    // Base
+                    ctx.fillStyle = b.color; ctx.fillRect(b.x, b.y, b.w, b.h);
+                    // Door
+                    ctx.fillStyle = '#0f172a'; ctx.fillRect(b.x + b.w/2 - 25, b.y + b.h - 60, 50, 60);
+                    // Label
+                    ctx.fillStyle = 'white'; ctx.font = '14px "Press Start 2P"'; ctx.textAlign='center';
+                    ctx.fillText(b.name, b.x + b.w/2, b.y - 10); ctx.textAlign='left';
+
+                    // Cek interaksi
+                    if (Math.abs(pCX - (b.x + b.w/2)) < 60 && Math.abs(pCY - (b.y + b.h)) < 60) {
+                        interactTarget = b;
+                    }
+                }
+            }
+
+            // Lighting (Malam)
+            let h = Math.floor(gameState.inGameMinutes / 60);
+            if (h >= 18 || h < 6) {
+                let dark = h >= 18 ? Math.min(0.8, (h-18)*0.15 + 0.3) : 0.8;
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.fillStyle = `rgba(10,15,30,${dark})`;
+                ctx.fillRect(0,0, scene.w, scene.h);
+
+                ctx.globalCompositeOperation = 'lighter';
+                const drawGlow = (cx, cy, r) => {
+                    let grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+                    grad.addColorStop(0, `rgba(253, 230, 138, ${dark})`); grad.addColorStop(1, 'rgba(253,230,138,0)');
+                    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+                };
+                if(scene.decos) {
+                    for(let d of scene.decos) if(d.type === 'lamp') drawGlow(d.x, d.y-80, 150);
+                }
+                for(let b of scene.objs) {
+                    if(b.type === 'building' && b.color === '#38bdf8') drawGlow(b.x + b.w/2, b.y + b.h/2, 200); // minimart terang
+                    if(b.type === 'building' && b.color === '#dc2626' && (h>=17||h<2)) drawGlow(b.x + b.w/2, b.y + b.h/2, 150); // pecel lele
+                }
+                ctx.globalCompositeOperation = 'source-over';
+            }
         }
 
-        if (
-            e.key === "ArrowLeft" ||
-            e.key === "a"
-        ) {
-            keys.left = false;
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg; t.style.opacity = 1;
+            setTimeout(() => t.style.opacity = 0, 3000);
         }
 
-        if (
-            e.key === "ArrowRight" ||
-            e.key === "d"
-        ) {
-            keys.right = false;
+        function formatRp(amount) {
+            return "Rp " + amount.toLocaleString('id-ID');
         }
 
-    }
-);
+        function openModal(title, desc, buttons) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            const btnContainer = document.getElementById('modal-buttons');
+            btnContainer.innerHTML = '';
+            buttons.forEach(b => {
+                const btn = document.createElement('button');
+                btn.className = `btn-generic ${b.cancel ? 'btn-cancel' : ''}`;
+                btn.innerText = b.text;
+                btn.onclick = () => { closeModal(); if(b.action) b.action(); };
+                btnContainer.appendChild(btn);
+            });
+            document.getElementById('modal-ui').style.display = 'flex';
+            keys.w = keys.a = keys.s = keys.d = false; // Reset move
+        }
+        function closeModal() { document.getElementById('modal-ui').style.display = 'none'; }
 
+        function addTime(mins) {
+            gameState.inGameMinutes += mins;
+            if (gameState.inGameMinutes >= 24*60) {
+                gameState.inGameMinutes -= 24*60;
+                gameState.day++;
+                gameState.jobWorkedToday = false;
+                
+                // Potong uang makan harian
+                gameState.money -= 30000;
+                showToast("Hari Baru. Biaya hidup dasar terpotong Rp 30.000");
 
-/* =========================
-   COLLISION
-========================= */
+                if (gameState.day > gameState.maxDays) {
+                    gameOver("Waktu 1 Tahun (365 Hari) telah habis. Kamu gagal melunasi utang Bapak.");
+                }
 
-const blockedAreas = [
-
-    {
-        x: 250,
-        y: 100,
-        width: 700,
-        height: 430
-    }
-
-];
-
-
-function isBlocked(x, y) {
-
-    for (
-        const area
-        of blockedAreas
-    ) {
-
-        if (
-            x > area.x &&
-            x < area.x + area.width &&
-            y > area.y &&
-            y < area.y + area.height
-        ) {
-
-            return true;
-
+                // Cek bayar kost
+                if (gameState.kostType && gameState.day >= gameState.kostPaidUntil) {
+                    let price = KOST_DB[gameState.kostType].price;
+                    if (gameState.money >= price) {
+                        gameState.money -= price;
+                        gameState.kostPaidUntil += 30;
+                        showToast(`Sewa Kost ${KOST_DB[gameState.kostType].name} diperpanjang (-${formatRp(price)})`);
+                    } else {
+                        gameState.kostType = null; // Diusir
+                        openModal("Diusir!", "Uangmu tidak cukup untuk perpanjang kost. Kamu kembali jadi gelandangan.", [{text:"OK"}]);
+                    }
+                }
+            }
         }
 
-    }
+        function interact() {
+            if(!interactTarget || gameState.isFading) return;
+            const t = interactTarget;
+            
+            if (t.interact === 'kost') {
+                const k = KOST_DB[t.kostId];
+                if (gameState.kostType === t.kostId) {
+                    // Masuk kost & tidur
+                    openModal("Kost Kamu", "Mau tidur sampai besok pagi? (Memulihkan energi & mood)", [
+                        { text: "Tidur", action: () => {
+                            gameState.energy = Math.min(100, gameState.energy + k.energyRec);
+                            gameState.mood = Math.min(100, gameState.mood + k.moodRec);
+                            // Skip time ke jam 6 pagi besoknya
+                            let currentMins = gameState.inGameMinutes;
+                            let targetMins = 24*60 + 6*60; // Besok jam 6
+                            addTime(targetMins - currentMins);
+                            showToast("Zzz... Tidur pulas di kost.");
+                        }},
+                        { text: "Batal", cancel: true }
+                    ]);
+                } else {
+                    // Sewa kost baru
+                    openModal(k.name, `${k.desc}\nHarga Sewa: ${formatRp(k.price)} / 30 Hari.\n\nMau sewa tempat ini?`, [
+                        { text: "Sewa", action: () => {
+                            if (gameState.money >= k.price) {
+                                gameState.money -= k.price;
+                                gameState.kostType = t.kostId;
+                                gameState.kostPaidUntil = gameState.day + 30;
+                                openModal("Berhasil", "Kamu resmi menyewa kost ini. Jangan lupa bayar bulan depan ya!", [{text:"OK"}]);
+                            } else {
+                                showToast("Uang tidak cukup!");
+                            }
+                        }},
+                        { text: "Batal", cancel: true }
+                    ]);
+                }
+            }
+            
+            else if (t.interact === 'job' || t.interact === 'job_eat' || t.interact === 'job_buy') {
+                const job = JOB_DB[t.jobId];
+                
+                // Cek jam buka
+                let h = Math.floor(gameState.inGameMinutes / 60);
+                let isOpen = false;
+                if(job.open < job.close) isOpen = (h >= job.open && h < job.close);
+                else isOpen = (h >= job.open || h < job.close);
 
-    return false;
+                if (gameState.jobId === t.jobId) {
+                    // Sudah punya kerjaan ini
+                    if (!isOpen) { showToast(`Tempat kerja tutup. Buka jam ${job.open}:00`); return; }
+                    if (gameState.jobWorkedToday) { showToast("Kamu sudah bekerja hari ini. Istirahatlah."); return; }
+                    if (gameState.energy < Math.abs(job.energy)) { showToast("Energi terlalu rendah untuk bekerja."); return; }
+                    
+                    openModal(job.name, `Kerja selama ${job.reqHours} Jam?\nGaji: ${formatRp(job.salary)}\nEnergi: ${job.energy}, Mood: ${job.mood}`, [
+                        { text: "Mulai Kerja", action: () => {
+                            gameState.money += job.salary;
+                            gameState.energy += job.energy;
+                            gameState.mood += job.mood;
+                            gameState.jobWorkedToday = true;
+                            addTime(job.reqHours * 60);
+                            showToast(`Selesai bekerja. Mendapat ${formatRp(job.salary)}`);
+                        }},
+                        { text: "Batal", cancel: true }
+                    ]);
+                } else {
+                    // Melamar kerja
+                    openModal(t.name, `Info Lowongan:\n${job.name}\nGaji: ${formatRp(job.salary)}/hari.\n\nSyarat: Bekerja Keras. Mau coba melamar?`, [
+                        { text: "Lamar Kerja", action: () => {
+                            if (Math.random() <= job.chance) {
+                                // Diterima
+                                let delay = Math.floor(Math.random() * 3); // 0-2 hari
+                                gameState.jobId = t.jobId;
+                                gameState.jobStartDay = gameState.day + delay;
+                                let msg = delay === 0 ? "Selamat! Kamu langsung diterima dan bisa kerja sekarang." : `Kamu diterima! Mulai masuk ${delay} hari lagi ya.`;
+                                openModal("DITERIMA!", msg, [{text:"Alhamdulillah"}]);
+                            } else {
+                                // Ditolak
+                                openModal("DITOLAK", "Maaf mas, posisi sudah penuh. Coba lagi besok atau cari tempat lain.", [{text:"Yah...", cancel: true}]);
+                            }
+                        }},
+                        { text: "Batal", cancel: true }
+                    ]);
+                }
+            }
 
-}
+            else if (t.interact === 'bank') {
+                openModal("BANK PUSAT", `Utang Bapak: ${formatRp(gameState.debt)}\nUangmu: ${formatRp(gameState.money)}\n\nIngin transfer cicilan? (Minimal Rp 1.000.000)`, [
+                    { text: "Bayar Rp 1 Juta", action: () => payDebt(1000000) },
+                    { text: "Bayar Rp 5 Juta", action: () => payDebt(5000000) },
+                    { text: "Tutup", cancel: true }
+                ]);
+            }
 
-
-/* =========================
-   UPDATE
-========================= */
-
-function update() {
-
-    let dx = 0;
-    let dy = 0;
-
-
-    /* JOYSTICK */
-
-    if (joystickActive) {
-
-        dx += joystickX;
-        dy += joystickY;
-
-    }
-
-
-    /* KEYBOARD */
-
-    if (keys.up)
-        dy -= 1;
-
-    if (keys.down)
-        dy += 1;
-
-    if (keys.left)
-        dx -= 1;
-
-    if (keys.right)
-        dx += 1;
-
-
-    player.moving =
-        Math.abs(dx) > 0.08 ||
-        Math.abs(dy) > 0.08;
-
-
-    if (!player.moving) {
-
-        player.frame = 0;
-        player.frameTimer = 0;
-
-        return;
-
-    }
-
-
-    const length =
-        Math.sqrt(
-            dx * dx +
-            dy * dy
-        );
-
-
-    if (length > 1) {
-
-        dx /= length;
-        dy /= length;
-
-    }
-
-
-    let newX =
-        player.x +
-        dx * player.speed;
-
-
-    let newY =
-        player.y +
-        dy * player.speed;
-
-
-    if (
-        !isBlocked(
-            newX,
-            player.y
-        )
-    ) {
-
-        player.x = newX;
-
-    }
-
-
-    if (
-        !isBlocked(
-            player.x,
-            newY
-        )
-    ) {
-
-        player.y = newY;
-
-    }
-
-
-    /* ARAH */
-
-    if (
-        Math.abs(dx) >
-        Math.abs(dy)
-    ) {
-
-        if (dx > 0) {
-
-            player.direction = 3;
-
-        } else {
-
-            player.direction = 1;
-
+            else if (t.interact === 'relax') {
+                openModal("Taman Kota", "Duduk bersantai di taman? (+20 Mood, memakan waktu 2 jam)", [
+                    { text: "Bersantai", action: () => {
+                        gameState.mood = Math.min(100, gameState.mood + 20);
+                        addTime(2*60);
+                        showToast("Pikiran kembali tenang melihat pepohonan...");
+                    }},
+                    { text: "Batal", cancel: true }
+                ]);
+            }
         }
 
-    }
-
-    else {
-
-        if (dy > 0) {
-
-            player.direction = 0;
-
-        } else {
-
-            player.direction = 2;
-
+        function payDebt(amount) {
+            if (gameState.money >= amount) {
+                gameState.money -= amount;
+                gameState.debt -= amount;
+                if (gameState.debt <= 0) {
+                    gameState.debt = 0;
+                    openModal("TAMAT!", "Luar biasa! Kamu berhasil melunasi seluruh utang Bapak. Kini Bapak bisa fokus pemulihan dan kamu bisa membangun hidup yang lebih baik di kota. TUNGGU UPDATE V1.1 UNTUK KONTEN SELANJUTNYA!", [{text:"Main Terus", cancel:true}]);
+                } else {
+                    openModal("Transfer Sukses", `Sisa utang: ${formatRp(gameState.debt)}. Terus semangat!`, [{text:"OK"}]);
+                }
+            } else {
+                showToast("Uangmu tidak cukup!");
+            }
         }
 
-    }
-
-
-    /* ANIMASI */
-
-    player.frameTimer++;
-
-
-    if (
-        player.frameTimer >= 8
-    ) {
-
-        player.frameTimer = 0;
-
-        player.frame++;
-
-
-        if (
-            player.frame >= 8
-        ) {
-
-            player.frame = 0;
-
+        function gameOver(reason) {
+            gameState.isPlaying = false;
+            openModal("GAME OVER", reason, [{text:"Ulangi dari Awal", action: () => location.reload() }]);
         }
 
-    }
-
-
-    /* BATAS MAP */
-
-    player.x =
-        Math.max(
-            40,
-            Math.min(
-                world.width - 40,
-                player.x
-            )
-        );
-
-
-    player.y =
-        Math.max(
-            40,
-            Math.min(
-                world.height - 20,
-                player.y
-            )
-        );
-
-}
-
-
-/* =========================
-   DRAW SCENE
-========================= */
-
-function drawScene(
-    cameraX,
-    cameraY
-) {
-
-    if (!scene.complete) {
-        return;
-    }
-
-
-    ctx.drawImage(
-
-        scene,
-
-        -cameraX,
-        -cameraY,
-
-        world.width,
-        world.height
-
-    );
-
-}
-
-
-/* =========================
-   DRAW PLAYER
-========================= */
-
-function drawPlayer(
-    cameraX,
-    cameraY
-) {
-
-    if (!playerImage.complete) {
-        return;
-    }
-
-
-    const frameWidth =
-        playerImage.width / 8;
-
-
-    const frameHeight =
-        playerImage.height / 4;
-
-
-    const sx =
-        player.frame *
-        frameWidth;
-
-
-    const sy =
-        player.direction *
-        frameHeight;
-
-
-    const x =
-        player.x -
-        cameraX -
-        player.width / 2;
-
-
-    const y =
-        player.y -
-        cameraY -
-        player.height;
-
-
-    ctx.drawImage(
-
-        playerImage,
-
-        sx,
-        sy,
-
-        frameWidth,
-        frameHeight,
-
-        x,
-        y,
-
-        player.width,
-        player.height
-
-    );
-
-}
-
-
-/* =========================
-   DRAW
-========================= */
-
-function draw() {
-
-    const cameraX =
-        player.x -
-        canvas.width / 2;
-
-
-    const cameraY =
-        player.y -
-        canvas.height / 2;
-
-
-    ctx.fillStyle = "#111";
-
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-
-    drawScene(
-        cameraX,
-        cameraY
-    );
-
-
-    drawPlayer(
-        cameraX,
-        cameraY
-    );
-
-}
-
-
-/* =========================
-   GAME LOOP
-========================= */
-
-function gameLoop() {
-
-    update();
-
-    draw();
-
-    requestAnimationFrame(
-        gameLoop
-    );
-
-}
-
-
-gameLoop();
-
-</script>
-
+        let lastTime = 0;
+        function update(dt) {
+            if (!gameState.isPlaying || document.getElementById('modal-ui').style.display === 'flex') return;
+
+            // Waktu Berjalan (1 detik nyata = 5 menit game)
+            addTime((dt / 1000) * 5);
+
+            // Metabolisme & Kelelahan
+            let drainFactor = (dt / 1000) * (5/60); // Base per in-game hour logic adjusted
+            gameState.energy -= drainFactor * 1.5; 
+            gameState.mood -= drainFactor * 0.8;
+            if (player.isMoving) gameState.energy -= drainFactor * 3; // Lari capek
+
+            if (gameState.energy <= 0) gameOver("Kamu jatuh pingsan karena kelelahan parah. Gagal bertahan hidup.");
+            if (gameState.mood <= 0) gameOver("Kamu depresi berat dan memutuskan pulang kampung dengan tangan kosong.");
+            if (gameState.money < 0) gameOver("Kamu terlilit hutang baru di kota dan ditangkap preman.");
+
+            // Kecepatan player berdasarkan energi
+            if (gameState.energy < 20) player.currentSpeed = player.speed * 0.4;
+            else if (gameState.energy < 40) player.currentSpeed = player.speed * 0.7;
+            else player.currentSpeed = player.speed;
+
+            // Pergerakan
+            let mx = 0, my = 0;
+            if(keys.w || keys.arrowup) my -= 1;
+            if(keys.s || keys.arrowdown) my += 1;
+            if(keys.a || keys.arrowleft) mx -= 1;
+            if(keys.d || keys.arrowright) mx += 1;
+
+            if (joystick.active) { mx = joystick.inputX; my = joystick.inputY; }
+            else if (mx !== 0 && my !== 0) { let len = Math.hypot(mx,my); mx /= len; my /= len; }
+
+            player.vx = mx * player.currentSpeed;
+            player.vy = my * player.currentSpeed;
+
+            if (Math.abs(mx) > Math.abs(my)) player.facing = mx > 0 ? 'right' : 'left';
+            else if (my !== 0) player.facing = my > 0 ? 'down' : 'up';
+
+            player.isMoving = (Math.abs(mx) > 0.1 || Math.abs(my) > 0.1);
+            if(player.isMoving) player.walkCycle += (dt/1000) * 15;
+
+            // Collision basic dengan batas map
+            const scene = scenes[gameState.currentScene];
+            let nx = player.x + player.vx; let ny = player.y + player.vy;
+            if (nx >= 0 && nx + player.w <= scene.w) player.x = nx;
+            if (ny >= 0 && ny + player.h <= scene.h) player.y = ny;
+
+            // Warp check
+            for(let o of scene.objs) {
+                if (o.type === 'warp') {
+                    if (player.x + player.w > o.x && player.x < o.x + o.w && player.y + player.h > o.y && player.y < o.y + o.h) {
+                        if (!gameState.isFading) {
+                            gameState.isFading = true;
+                            gameState.targetWarp = o;
+                        }
+                    }
+                }
+            }
+
+            // Camera follow
+            camera.x += ((player.x + player.w/2 - canvas.width/2) - camera.x) * 0.1;
+            camera.y += ((player.y + player.h/2 - canvas.height/2) - camera.y) * 0.1;
+            if(camera.x < 0) camera.x = 0; if(camera.y < 0) camera.y = 0;
+            if(camera.x > scene.w - canvas.width) camera.x = scene.w - canvas.width;
+            if(camera.y > scene.h - canvas.height) camera.y = scene.h - canvas.height;
+
+            // Fade Logic
+            if (gameState.isFading) {
+                gameState.fadeAlpha += 0.05;
+                if (gameState.fadeAlpha >= 1) {
+                    // Pindah
+                    gameState.currentScene = gameState.targetWarp.target;
+                    player.x = gameState.targetWarp.tx; player.y = gameState.targetWarp.ty;
+                    gameState.targetWarp = null;
+                    gameState.isFading = false;
+                    // Memicu fade in di frame berikutnya
+                }
+            } else if (gameState.fadeAlpha > 0) {
+                gameState.fadeAlpha -= 0.05;
+                if(gameState.fadeAlpha < 0) gameState.fadeAlpha = 0;
+            }
+
+            // Update UI HUD
+            document.getElementById('ui-money').innerText = formatRp(Math.floor(gameState.money));
+            document.getElementById('ui-debt').innerText = formatRp(Math.floor(gameState.debt));
+            document.getElementById('energy-bar').style.width = gameState.energy + '%';
+            document.getElementById('energy-bar').style.background = gameState.energy < 25 ? '#ef4444' : '#facc15';
+            document.getElementById('mood-bar').style.width = gameState.mood + '%';
+            
+            document.getElementById('ui-day').innerText = gameState.day;
+            let hh = Math.floor(gameState.inGameMinutes / 60) % 24;
+            let mm = Math.floor(gameState.inGameMinutes % 60);
+            document.getElementById('ui-clock').innerText = (hh<10?'0'+hh:hh) + ':' + (mm<10?'0'+mm:mm);
+
+            // Tombol Aksi aktif jika ada target
+            if (interactTarget && !gameState.isFading) btnAction.classList.remove('disabled');
+            else btnAction.classList.add('disabled');
+        }
+
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+
+            update(dt);
+
+            if (gameState.isPlaying) {
+                ctx.fillStyle = '#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
+                ctx.save();
+                ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
+                drawWorld();
+                ctx.restore();
+
+                // Interaksi UI On-Canvas
+                if (interactTarget && !gameState.isFading) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+                    ctx.fillRect(canvas.width/2 - 150, canvas.height - 150, 300, 40);
+                    ctx.fillStyle = '#facc15'; ctx.font = '12px "Press Start 2P"'; ctx.textAlign = 'center';
+                    ctx.fillText(interactTarget.name, canvas.width/2, canvas.height - 125);
+                    ctx.textAlign = 'left';
+                }
+
+                // Fade Black
+                if (gameState.fadeAlpha > 0) {
+                    ctx.fillStyle = `rgba(0,0,0,${gameState.fadeAlpha})`;
+                    ctx.fillRect(0,0,canvas.width,canvas.height);
+                }
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        function startGame() {
+            document.getElementById('cutscene').style.display = 'none';
+            document.getElementById('hud').style.display = 'flex';
+            gameState.isPlaying = true;
+            
+            // Resize canvas scale handling
+            const resize = () => {
+                const w = window.innerWidth; const h = window.innerHeight;
+                // Tetap render di 1280x720 internal, tapi di CSS disesuaikan object-fit
+            };
+            window.addEventListener('resize', resize); resize();
+            
+            lastTime = performance.now();
+            requestAnimationFrame(loop);
+        }
+    </script>
 </body>
 </html>
