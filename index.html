@@ -25,7 +25,7 @@
 
     <div id="loading-screen">
         <div class="loading-text">MEMUAT ASET...<br><span id="loading-progress">0%</span></div>
-        <div id="loading-detail">Menyiapkan aspal & bangunan</div>
+        <div id="loading-detail">Menyelaraskan Rotasi & Skala</div>
     </div>
 
     <div class="controls-area">
@@ -39,8 +39,9 @@
         let characterActions = {};
         let globalModels = {};
         
-        // SISTEM GRID (Ukuran presisi agar tidak ada celah)
-        const TILE_SIZE = 3.0; // Ukuran 1 blok setelah di-scale
+        // SISTEM GRID BARU 
+        const TILE_WIDTH = 4.0;  // Lebar jalan ke samping (X)
+        const TILE_LENGTH = 5.0; // Panjang potongan jalan ke depan (Z) agar rapat
 
         const joystick = { active: false, x: 0, y: 0, touchId: null };
 
@@ -50,20 +51,19 @@
             const canvas = document.getElementById('webgl-canvas');
             scene = new THREE.Scene();
             
-            // Pencahayaan dibuat cerah dan jelas agar warna asli aset terlihat
-            scene.background = new THREE.Color(0x87CEEB); // Langit biru terang
-            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-            const sun = new THREE.DirectionalLight(0xffffff, 1.0); 
+            // Warna dasar tanah disamakan dengan aspal gelap, agar kalau ada celah 1mm tidak terlihat
+            scene.background = new THREE.Color(0x2c303a);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            const sun = new THREE.DirectionalLight(0xffffff, 1.2); 
             sun.position.set(20, 50, -20);
             scene.add(sun);
 
-            // Lantai dasar (Rumput hijau gelap sebagai alas di bawah aspal)
             const ground = new THREE.Mesh(
-                new THREE.PlaneGeometry(200, 200),
-                new THREE.MeshStandardMaterial({ color: 0x2d4c1e })
+                new THREE.PlaneGeometry(500, 500),
+                new THREE.MeshStandardMaterial({ color: 0x22242b }) // Aspal kusam
             );
             ground.rotation.x = -Math.PI / 2;
-            ground.position.y = -0.1; // Sedikit di bawah aspal
+            ground.position.y = -0.1;
             scene.add(ground);
 
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -76,7 +76,6 @@
 
         function loadAssets() {
             const loader = new THREE.GLTFLoader();
-            // HANYA MEMUAT ASET YANG DIBUTUHKAN UNTUK KALIBRASI
             const assetsToLoad = [
                 { id: 'player', path: 'assets/models/Isman.glb' },
                 { id: 'aspal', path: 'assets/models/driveway-long.glb' },
@@ -90,7 +89,7 @@
                 loader.load(asset.path, (gltf) => {
                     if(asset.id === 'player') {
                         ismanMesh = gltf.scene;
-                        ismanMesh.scale.set(0.8, 0.8, 0.8); // Ukuran Isman
+                        ismanMesh.scale.set(0.8, 0.8, 0.8);
                         scene.add(ismanMesh);
                         
                         if(gltf.animations.length > 0) {
@@ -119,59 +118,65 @@
             });
         }
 
-        // FUNGSI MEMBANGUN JALAN DENGAN PRESISI (GRID SYSTEM)
         function buildTestStreet() {
-            // Kita buat jalan lurus sepanjang 10 blok ke depan dan ke belakang
-            for(let z = -10; z <= 10; z++) {
-                let zPos = z * TILE_SIZE;
+            // Bangun jalan sepanjang 15 blok ke depan dan belakang
+            for(let z = -15; z <= 15; z++) {
+                let zPos = z * TILE_LENGTH; // Jarak rapat
 
-                // 1. PASANG ASPAL DI TENGAH (X = 0)
+                // 1. ASPAL TENGAH (Diputar 90 derajat = Math.PI / 2)
                 if(globalModels['aspal']) {
                     let aspal = globalModels['aspal'].clone();
-                    aspal.scale.set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    aspal.rotation.y = Math.PI / 2; // PUTAR KE DEPAN
+                    // Skala X dinaikkan tajam (karena sudah diputar, X menjadi Z/panjang) agar rapat
+                    aspal.scale.set(5.5, 3.0, 3.0); 
                     aspal.position.set(0, 0, zPos);
                     scene.add(aspal);
                 }
 
-                // 2. PASANG TROTOAR DI KIRI (X = -TILE_SIZE)
+                // 2. TROTOAR KIRI (Diputar 90 derajat)
                 if(globalModels['trotoar']) {
-                    let trotoarKiri = globalModels['trotoar'].clone();
-                    trotoarKiri.scale.set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                    trotoarKiri.position.set(-TILE_SIZE, 0, zPos);
-                    scene.add(trotoarKiri);
+                    let tk = globalModels['trotoar'].clone();
+                    tk.rotation.y = Math.PI / 2;
+                    tk.scale.set(5.5, 3.0, 3.0);
+                    tk.position.set(-TILE_WIDTH, 0, zPos);
+                    scene.add(tk);
                 }
 
-                // 3. PASANG TROTOAR DI KANAN (X = TILE_SIZE)
+                // 3. TROTOAR KANAN (Diputar 90 derajat)
                 if(globalModels['trotoar']) {
-                    let trotoarKanan = globalModels['trotoar'].clone();
-                    trotoarKanan.scale.set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                    trotoarKanan.position.set(TILE_SIZE, 0, zPos);
-                    // Putar 180 derajat agar list oren menghadap aspal (jika perlu)
-                    trotoarKanan.rotation.y = Math.PI; 
-                    scene.add(trotoarKanan);
+                    let ta = globalModels['trotoar'].clone();
+                    ta.rotation.y = Math.PI / 2;
+                    ta.scale.set(5.5, 3.0, 3.0);
+                    ta.position.set(TILE_WIDTH, 0, zPos);
+                    scene.add(ta);
                 }
             }
 
-            // 4. PASANG RUMAH DI SAMPING TROTOAR KIRI (X = -TILE_SIZE * 2)
+            // 4. RUMAH KIRI (Pintu menghadap ke aspal)
             if(globalModels['rumah']) {
-                let rumah1 = globalModels['rumah'].clone();
-                rumah1.scale.set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                rumah1.position.set(-TILE_SIZE * 2, 0, -TILE_SIZE * 2); // Agak ke depan
-                rumah1.rotation.y = Math.PI / 2; // Pintu menghadap jalan aspal
-                scene.add(rumah1);
+                let r1 = globalModels['rumah'].clone();
+                r1.scale.set(3.0, 3.0, 3.0);
+                r1.position.set(-TILE_WIDTH * 2, 0, -TILE_LENGTH); 
+                r1.rotation.y = Math.PI / 2; // Putar agar menghadap jalan
+                scene.add(r1);
+                
+                let r2 = globalModels['rumah'].clone();
+                r2.scale.set(3.0, 3.0, 3.0);
+                r2.position.set(-TILE_WIDTH * 2, 0, TILE_LENGTH * 2); 
+                r2.rotation.y = Math.PI / 2;
+                scene.add(r2);
             }
 
-            // 5. PASANG MINIMARKET DI SAMPING TROTOAR KANAN (X = TILE_SIZE * 2)
+            // 5. MINIMARKET KANAN (Pintu menghadap ke aspal)
             if(globalModels['minimarket']) {
-                let minimart = globalModels['minimarket'].clone();
-                minimart.scale.set(TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                minimart.position.set(TILE_SIZE * 2, 0, TILE_SIZE * 2); 
-                minimart.rotation.y = -Math.PI / 2; // Pintu menghadap jalan aspal
-                scene.add(minimart);
+                let m1 = globalModels['minimarket'].clone();
+                m1.scale.set(3.0, 3.0, 3.0);
+                m1.position.set(TILE_WIDTH * 2, 0, 0); 
+                m1.rotation.y = -Math.PI / 2; // Putar arah sebaliknya
+                scene.add(m1);
             }
         }
 
-        // --- JOYSTICK LOGIC ---
         const joyZone = document.getElementById('joystick-zone');
         const joyStick = document.getElementById('joystick-stick');
         const maxJoy = 35; 
@@ -191,7 +196,6 @@
             joystick.x = dx / maxJoy; joystick.y = dy / maxJoy;
         }
 
-        // --- MAIN LOOP ---
         function gameLoop() {
             requestAnimationFrame(gameLoop);
             const dt = clock.getDelta();
@@ -201,7 +205,7 @@
             if(ismanMesh) {
                 let isMoving = false;
                 if(joystick.active) {
-                    let speed = 5.0 * dt; 
+                    let speed = 4.0 * dt; 
                     ismanMesh.position.x += joystick.x * speed;
                     ismanMesh.position.z += joystick.y * speed;
                     ismanMesh.rotation.y = Math.atan2(joystick.x, joystick.y);
@@ -216,10 +220,10 @@
                     }
                 }
 
-                // Kamera menyorot dari atas-belakang karakter dengan jarak yang nyaman
+                // Kamera Isometric Nyaman (Atas-Belakang)
                 camera.position.x += (ismanMesh.position.x - camera.position.x) * 0.1;
-                camera.position.y = ismanMesh.position.y + 12; // Tinggi Kamera
-                camera.position.z += (ismanMesh.position.z + 12 - camera.position.z) * 0.1; // Jarak Belakang
+                camera.position.y = ismanMesh.position.y + 12; // Tinggi
+                camera.position.z += (ismanMesh.position.z + 12 - camera.position.z) * 0.1; // Mundur
                 camera.lookAt(ismanMesh.position.x, ismanMesh.position.y, ismanMesh.position.z);
             }
 
