@@ -77,17 +77,17 @@
         .btn-menu:active { transform: translateY(8px); box-shadow: 0 0 0 #1e3a8a; }
 
         /* Cutscene */
-        #cutscene { background-color: black; z-index: 90; display: none; padding: 2rem; text-align: center; }
+        #cutscene { background-color: black; z-index: 90; display: none; padding: 2rem; text-align: center; position: relative; }
         .cutscene-text { font-family: 'Nunito', sans-serif; font-size: clamp(1.2rem, 3vw, 2rem); color: white; opacity: 0; transition: opacity 1s ease-in-out; max-width: 800px; line-height: 1.6; }
+        .btn-skip { position: absolute; bottom: 30px; right: 30px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.5); color: white; padding: 0.8rem 1.5rem; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .btn-skip:active { background: rgba(255,255,255,0.3); }
 
         /* HUD (Heads Up Display) */
         #hud { z-index: 50; pointer-events: none; justify-content: space-between; display: none; }
-        .top-bar { width: 100%; display: flex; justify-content: space-between; padding: 1rem; pointer-events: auto; }
+        .top-bar { width: 100%; display: flex; justify-content: space-between; padding: 0.5rem; pointer-events: auto; }
         
-        .hud-panel { background: rgba(15,23,42,0.85); border: 2px solid #475569; padding: 0.5rem 1rem; border-radius: 12px; backdrop-filter: blur(4px); box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
-        .hud-stats { display: flex; gap: 1.5rem; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; color: white; align-items: center; }
-        .stat-item { display: flex; align-items: center; gap: 0.5rem; }
-        
+        .hud-panel { background: rgba(15,23,42,0.4); border: 1px solid rgba(71,85,105,0.6); padding: 0.4rem 0.8rem; border-radius: 12px; backdrop-filter: blur(2px); box-shadow: 0 4px 6px rgba(0,0,0,0.3); transform: scale(0.9); transform-origin: top; }
+        .hud-stats { display: flex; gap: 1rem; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; color: white; align-items: center; }
         .bar-bg { width: 60px; height: 10px; background: #334155; border-radius: 5px; overflow: hidden; border: 1px solid #000; }
         .bar-fill { height: 100%; transition: width 0.3s, background-color 0.3s; }
         #energy-bar { background: #facc15; }
@@ -147,6 +147,7 @@
             <!-- Cutscene Layer -->
             <div id="cutscene" class="screen-layer">
                 <div id="cs-text" class="cutscene-text"></div>
+                <button id="btn-skip-cs" class="btn-skip" onclick="skipCutscene()">SKIP >></button>
             </div>
 
             <!-- HUD (Heads Up Display) -->
@@ -269,6 +270,7 @@
         let bgmSynth, bgmLoop;
         let walkSynth;
         let lastStepTime = 0;
+        let csTimeout; // Timeout referensi cutscene
 
         async function initAudio() {
             if (isAudioInitialized) return;
@@ -328,16 +330,21 @@
             const csText = document.getElementById('cs-text');
             if (csIndex < cutsceneTexts.length) {
                 csText.style.opacity = 0;
-                setTimeout(() => {
+                csTimeout = setTimeout(() => {
                     csText.innerText = cutsceneTexts[csIndex];
                     csText.style.opacity = 1;
                     csIndex++;
-                    setTimeout(showNextCutscene, 4000); // 4 detik per teks
+                    csTimeout = setTimeout(showNextCutscene, 4000); // 4 detik per teks
                 }, 1000);
             } else {
                 csText.style.opacity = 0;
-                setTimeout(startGame, 1000);
+                csTimeout = setTimeout(startGame, 1000);
             }
+        }
+
+        function skipCutscene() {
+            clearTimeout(csTimeout);
+            startGame();
         }
 
         const keys = {};
@@ -433,6 +440,7 @@
                     { type: 'warp', x: 0, y: 300, w: 50, h: 400, target: 'gang_kost', tx: 1400, ty: 500, label: '⬅ Ke Area Kost' },
                     { type: 'warp', x: 1550, y: 300, w: 50, h: 400, target: 'pasar', tx: 100, ty: 500, label: 'Ke Pasar Malam ➡' },
                     { type: 'building', id: 'job_kuli', name: 'Mandor Terminal', x: 700, y: 150, w: 200, h: 150, color: '#b45309', interact: 'job', jobId: 'kuli' },
+                    { type: 'npc', name: 'Bang Jali (Calo)', x: 400, y: 750, w: 32, h: 48, skin: '#d97706', shirt: '#475569', pants: '#0f172a', facing: 'right', dIndex: 0, dialogues: ['Mau ke mana dek? Tiket bis habis!', 'Hati-hati di kota, banyak copet.', 'Tidur di terminal bisa masuk angin lu.'] },
                     { type: 'bus', x: 300, y: 600, w: 250, h: 120, color: '#0ea5e9' },
                     { type: 'bus', x: 1000, y: 600, w: 250, h: 120, color: '#ef4444' }
                 ],
@@ -449,6 +457,7 @@
                     { type: 'building', id: 'kost_triplek', name: 'Kost Triplek', x: 150, y: 150, w: 200, h: 200, color: '#a16207', interact: 'kost', kostId: 'triplek' },
                     { type: 'building', id: 'kost_standar', name: 'Kost Standar', x: 550, y: 150, w: 250, h: 250, color: '#64748b', interact: 'kost', kostId: 'standar' },
                     { type: 'building', id: 'kost_vip', name: 'Kost VIP', x: 1050, y: 100, w: 300, h: 300, color: '#f59e0b', interact: 'kost', kostId: 'vip' },
+                    { type: 'npc', name: 'Bu Tejo (Ibu Kost)', x: 450, y: 350, w: 32, h: 48, skin: '#fcd34d', shirt: '#ec4899', pants: '#831843', facing: 'down', dIndex: 0, dialogues: ['Eh pemuda baru ya? Jangan lupa bayar kost tepat waktu!', 'Air PDAM lagi mati nih, mandi di kali aja sana.', 'Kerja yang bener, jangan kelayapan terus.'] }
                 ],
                 decos: [ {type:'lamp', x:450, y:400}, {type:'lamp', x:950, y:400} ]
             },
@@ -460,6 +469,7 @@
                     { type: 'warp', x: 1550, y: 400, w: 50, h: 200, target: 'bisnis', tx: 100, ty: 500, label: 'Ke Area Bisnis ➡' },
                     { type: 'building', id: 'job_cuci', name: 'Pecel Lele (Malam)', x: 300, y: 200, w: 250, h: 200, color: '#dc2626', interact: 'job_eat', jobId: 'cuci_piring' },
                     { type: 'building', id: 'job_mini', name: 'Minimarket 24 Jam', x: 900, y: 150, w: 300, h: 250, color: '#38bdf8', interact: 'job_buy', jobId: 'minimarket' },
+                    { type: 'npc', name: 'Udin Pengamen', x: 750, y: 400, w: 32, h: 48, skin: '#92400e', shirt: '#fef08a', pants: '#1c1917', facing: 'left', dIndex: 0, dialogues: ['Bagi recehnya dong bang, buat makan...', 'Sambal pecel lele bang Somad pedas gila.', 'Hari gini cari kerja susah bang, mending ngamen.'] }
                 ],
                 decos: [ {type:'lamp', x:700, y:450}, {type:'tree', x: 200, y:150}, {type:'tree', x: 1300, y:150} ]
             },
@@ -471,6 +481,7 @@
                     { type: 'warp', x: 800, y: 0, w: 300, h: 50, target: 'taman', tx: 800, ty: 1000, label: '⬆ Ke Taman Kota' },
                     { type: 'building', id: 'bank', name: 'BANK (Bayar Utang)', x: 300, y: 100, w: 400, h: 300, color: '#0ea5e9', interact: 'bank' },
                     { type: 'building', id: 'job_admin', name: 'Gedung Perkantoran', x: 1100, y: 100, w: 400, h: 400, color: '#94a3b8', interact: 'job', jobId: 'admin' },
+                    { type: 'npc', name: 'Pak Satpam', x: 500, y: 450, w: 32, h: 48, skin: '#fcd34d', shirt: '#ffffff', pants: '#1e3a8a', facing: 'down', dIndex: 0, dialogues: ['Selamat siang, mau ke Bank? Harap antre.', 'Pastikan uang anda aman, banyak preman.', 'Gedung kantoran ini hanya untuk staf berdasi.'] }
                 ],
                 decos: [ {type:'lamp', x:400, y:500}, {type:'lamp', x:1100, y:600} ]
             },
@@ -481,18 +492,17 @@
                     { type: 'warp', x: 700, y: 1150, w: 200, h: 50, target: 'bisnis', tx: 950, ty: 150, label: '⬇ Ke Area Bisnis' },
                     { type: 'building', id: 'bench', name: 'Bangku Taman (Nongkrong)', x: 700, y: 550, w: 100, h: 50, color: '#78350f', interact: 'relax' },
                     { type: 'building', id: 'job_kurir', name: 'Pangkalan Kurir', x: 200, y: 200, w: 200, h: 200, color: '#f59e0b', interact: 'job', jobId: 'kurir' },
+                    { type: 'npc', name: 'Anak Senja', x: 950, y: 650, w: 32, h: 48, skin: '#fde047', shirt: '#a21caf', pants: '#3f3f46', facing: 'left', dIndex: 0, dialogues: ['Kopi, senja, dan utang... eh maksudku puisi.', 'Taman ini damai banget ya, anginnya sejuk.', 'Capek kerja kan? Udah nongkrong aja dulu di sini.'] }
                 ],
                 decos: [ {type:'tree', x:300, y:800}, {type:'tree', x:1300, y:800}, {type:'tree', x:1200, y:300} ]
             }
         };
 
-        function drawPlayer(ctx) {
-            let px = player.x + player.w/2; let py = player.y + player.h;
-            let bounce = player.isMoving ? Math.abs(Math.sin(player.walkCycle)) * 5 : 0;
-            let swing = player.isMoving ? Math.sin(player.walkCycle) : 0;
+        function drawCharacter(ctx, x, y, w, h, facing, isMoving, walkCycle, skin, shirt, pants) {
+            let px = x + w/2; let py = y + h;
+            let bounce = isMoving ? Math.abs(Math.sin(walkCycle)) * 5 : 0;
+            let swing = isMoving ? Math.sin(walkCycle) : 0;
             
-            const skin = '#fcd34d', shirt = '#ea580c', pants = '#1e293b';
-
             // Bayangan
             ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(px, py, 16, 6, 0, 0, Math.PI*2); ctx.fill();
 
@@ -515,33 +525,45 @@
 
             const drawBody = () => {
                 ctx.fillStyle = shirt; ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
-                ctx.beginPath(); ctx.roundRect(px - 10, bodyY, 20, 16, 4); ctx.fill(); ctx.stroke();
+                // Gradien dada
+                let g = ctx.createLinearGradient(px, bodyY, px, bodyY+16);
+                g.addColorStop(0, shirt); g.addColorStop(1, 'rgba(0,0,0,0.3)');
+                ctx.beginPath(); ctx.roundRect(px - 10, bodyY, 20, 16, 4); ctx.fill();
+                ctx.fillStyle = g; ctx.fill(); ctx.stroke();
             };
 
-            const drawHead = (facing) => {
+            const drawHead = (dir) => {
                 ctx.fillStyle = skin; ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
-                ctx.beginPath(); ctx.roundRect(px - 16, headY - 16, 32, 32, 10); ctx.fill(); ctx.stroke();
+                
+                // Gradien wajah
+                let grad = ctx.createRadialGradient(px-5, headY-22, 2, px, headY-16, 20);
+                grad.addColorStop(0, '#ffffff'); grad.addColorStop(1, skin);
+
+                ctx.beginPath(); ctx.roundRect(px - 16, headY - 16, 32, 32, 10); ctx.fillStyle = grad; ctx.fill(); ctx.stroke();
                 
                 // Mata
                 ctx.fillStyle = 'black';
-                if(facing === 'down') { ctx.fillRect(px-8, headY-2, 4, 6); ctx.fillRect(px+4, headY-2, 4, 6); }
-                else if(facing === 'right') { ctx.fillRect(px+6, headY-2, 4, 6); }
-                else if(facing === 'left') { ctx.fillRect(px-10, headY-2, 4, 6); }
+                if(dir === 'down') { ctx.fillRect(px-8, headY-2, 4, 6); ctx.fillRect(px+4, headY-2, 4, 6); }
+                else if(dir === 'right') { ctx.fillRect(px+6, headY-2, 4, 6); }
+                else if(dir === 'left') { ctx.fillRect(px-10, headY-2, 4, 6); }
                 
                 // Rambut
                 ctx.fillStyle = '#0f172a';
                 ctx.beginPath();
-                if(facing==='down') { ctx.arc(px, headY-6, 17, Math.PI, 0); ctx.lineTo(px+17, headY+2); ctx.lineTo(px, headY-12); ctx.lineTo(px-17, headY+2); }
-                else if(facing==='up') { ctx.arc(px, headY, 17, 0, Math.PI*2); }
-                else { ctx.arc(px, headY-4, 17, Math.PI, 0); } // Samping simple
+                if(dir==='down') { ctx.arc(px, headY-6, 17, Math.PI, 0); ctx.lineTo(px+17, headY+2); ctx.lineTo(px, headY-12); ctx.lineTo(px-17, headY+2); }
+                else if(dir==='up') { ctx.arc(px, headY, 17, 0, Math.PI*2); }
+                else { ctx.arc(px, headY-4, 17, Math.PI, 0); } 
                 ctx.fill(); ctx.stroke();
             };
 
-            // Urutan render berdasarkan arah
-            if (player.facing === 'up') { drawLimb(-12,0,shirt,true,false); drawLimb(12,0,shirt,false,false); drawLimb(-6,12,pants,false,true); drawLimb(6,12,pants,true,true); drawBody(); drawHead('up'); }
-            else if (player.facing === 'down') { drawLimb(-6,12,pants,false,true); drawLimb(6,12,pants,true,true); drawBody(); drawHead('down'); drawLimb(-12,0,shirt,true,false); drawLimb(12,0,shirt,false,false); }
-            else if (player.facing === 'right') { drawLimb(-5,0,shirt,false,false); drawLimb(-4,12,pants,false,true); drawLimb(4,12,pants,true,true); drawBody(); drawHead('right'); drawLimb(5,0,shirt,true,false); }
-            else if (player.facing === 'left') { drawLimb(5,0,shirt,false,false); drawLimb(4,12,pants,false,true); drawLimb(-4,12,pants,true,true); drawBody(); drawHead('left'); drawLimb(-5,0,shirt,true,false); }
+            if (facing === 'up') { drawLimb(-12,0,shirt,true,false); drawLimb(12,0,shirt,false,false); drawLimb(-6,12,pants,false,true); drawLimb(6,12,pants,true,true); drawBody(); drawHead('up'); }
+            else if (facing === 'down') { drawLimb(-6,12,pants,false,true); drawLimb(6,12,pants,true,true); drawBody(); drawHead('down'); drawLimb(-12,0,shirt,true,false); drawLimb(12,0,shirt,false,false); }
+            else if (facing === 'right') { drawLimb(-5,0,shirt,false,false); drawLimb(-4,12,pants,false,true); drawLimb(4,12,pants,true,true); drawBody(); drawHead('right'); drawLimb(5,0,shirt,true,false); }
+            else if (facing === 'left') { drawLimb(5,0,shirt,false,false); drawLimb(4,12,pants,false,true); drawLimb(-4,12,pants,true,true); drawBody(); drawHead('left'); drawLimb(-5,0,shirt,true,false); }
+        }
+
+        function drawPlayer(ctx) {
+            drawCharacter(ctx, player.x, player.y, player.w, player.h, player.facing, player.isMoving, player.walkCycle, '#fcd34d', '#ea580c', '#1e293b');
         }
 
         let interactTarget = null;
@@ -571,6 +593,16 @@
 
             for(let item of drawQueue) {
                 if(item.type === 'player') drawPlayer(ctx);
+                else if(item.type === 'npc') {
+                    let n = item.obj;
+                    // Gambar NPC dengan fungsi karakter generic
+                    drawCharacter(ctx, n.x, n.y, n.w, n.h, n.facing, false, 0, n.skin, n.shirt, n.pants);
+                    
+                    // Cek Interaksi NPC
+                    if (Math.abs(pCX - (n.x + n.w/2)) < 55 && Math.abs(pCY - (n.y + n.h)) < 55) {
+                        interactTarget = { ...n, interact: 'npc' };
+                    }
+                }
                 else if(item.type === 'deco' && item.obj.type === 'tree') drawTree(ctx, item.obj.x, item.obj.y);
                 else if(item.type === 'deco' && item.obj.type === 'lamp') {
                     ctx.fillStyle='#475569'; ctx.fillRect(item.obj.x-3, item.obj.y-80, 6, 80);
@@ -685,6 +717,22 @@
             if(!interactTarget || gameState.isFading) return;
             const t = interactTarget;
             
+            if (t.interact === 'npc') {
+                // Cari referensi objek NPC asli di array untuk update Index Dialog
+                const sceneObjs = scenes[gameState.currentScene].objs;
+                const realNpc = sceneObjs.find(o => o.type === 'npc' && o.name === t.name);
+                
+                let text = realNpc.dialogues[realNpc.dIndex];
+                
+                openModal(realNpc.name, `"${text}"`, [
+                    { text: "Lanjut", action: () => {
+                        // Putar ke dialog selanjutnya untuk interaksi berikutnya
+                        realNpc.dIndex = (realNpc.dIndex + 1) % realNpc.dialogues.length;
+                    }}
+                ]);
+                return; // Hentikan interaksi yang lain
+            }
+
             if (t.interact === 'kost') {
                 const k = KOST_DB[t.kostId];
                 if (gameState.kostType === t.kostId) {
@@ -883,6 +931,7 @@
                     // Hanya bagian bawah bangunan yang solid
                     if (o.type === 'building') allSolids.push({ x: o.x, y: o.y + o.h - 60, w: o.w, h: 60 });
                     else if (o.type === 'bus') allSolids.push({ x: o.x, y: o.y + o.h - 40, w: o.w, h: 40 });
+                    else if (o.type === 'npc') allSolids.push({ x: o.x, y: o.y + o.h - 15, w: o.w, h: 15 });
                     else allSolids.push({ x: o.x, y: o.y, w: o.w, h: o.h });
                 }
             }
