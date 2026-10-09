@@ -184,6 +184,13 @@ function boxObstacle(x, z, w, d) {
 }
 
 function addFence(x, z, length, rotation = 0) {
+  // Collision dipasang langsung agar karakter tidak bisa menembus pagar.
+  // Ukuran mengikuti panjang pagar yang dipasang.
+  if (rotation === 0) {
+    boxObstacle(x, z, length, 0.65);
+  } else {
+    boxObstacle(x, z, 0.65, length);
+  }
   loader.load(base + "fence-1x4.glb", gltf => {
     const obj = gltf.scene;
     fitModel(obj, length, 1.3, 0.35);
@@ -341,6 +348,13 @@ joy.addEventListener("pointermove", e => {
 joy.addEventListener("pointerup", releaseStick);
 joy.addEventListener("pointercancel", releaseStick);
 
+/* Ketinggian permukaan: trotoar lebih tinggi daripada aspal. */
+function groundHeight(z) {
+  if (z >= 5.75 && z <= 8.2) return 0.12; // permukaan trotoar
+  if (z >= 9 && z <= 16) return 0.035; // permukaan aspal
+  return 0;
+}
+
 /* Collision sederhana pada posisi kaki */
 function collides(x, z) {
   for (const o of obstacles) {
@@ -384,6 +398,8 @@ function animate() {
         character.position.z = THREE.MathUtils.clamp(nz, -2.5, 16);
       }
 
+      // Ikuti tinggi permukaan agar kaki tidak tenggelam di trotoar.
+      character.position.y = groundHeight(character.position.z);
       character.rotation.y = Math.atan2(dx, dz);
 
       if (walkAction && activeAction !== walkAction) {
@@ -397,9 +413,11 @@ function animate() {
       activeAction = idleAction;
     }
 
+    // Koreksi juga saat karakter diam atau baru selesai dimuat.
+    character.position.y = groundHeight(character.position.z);
     target.set(
       character.position.x,
-      0,
+      character.position.y,
       character.position.z
     );
   }
