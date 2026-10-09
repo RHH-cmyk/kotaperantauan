@@ -1,234 +1,442 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kalibrasi Aset 3D</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Nunito', sans-serif; background-color: #1a1e24; color: #fff; overflow: hidden; touch-action: none; user-select: none; }
-        #webgl-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        #loading-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #1a1e24; z-index: 99; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .loading-text { font-family: 'Press Start 2P', cursive; color: #fbbf24; font-size: 1rem; margin-bottom: 10px; text-align: center; line-height: 1.5; }
-        #loading-detail { font-family: 'Press Start 2P', cursive; color: #94a3b8; font-size: 0.6rem; }
-        
-        .controls-area { width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 2rem; pointer-events: none; position: absolute; bottom: 40px; left: 0; z-index: 10; }
-        .joystick-base { width: 120px; height: 120px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
-        .joystick-stick { width: 50px; height: 50px; background: rgba(255,255,255,0.7); border-radius: 50%; pointer-events: none; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Kota Perantauan - Scene 1</title>
+
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #252a2b;
+  touch-action: none;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#status {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
+  max-width: 75%;
+  padding: 9px 12px;
+  color: white;
+  background: #18201dd9;
+  border-radius: 8px;
+  font: 12px Arial, sans-serif;
+  pointer-events: none;
+}
+#joy {
+  position: fixed;
+  left: 24px;
+  bottom: 28px;
+  width: 142px;
+  height: 142px;
+  border: 3px solid #ffffff55;
+  background: #1119;
+  border-radius: 50%;
+  z-index: 10;
+  touch-action: none;
+}
+#knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 62px;
+  height: 62px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: #b9b9b9c9;
+  pointer-events: none;
+}
+</style>
 </head>
+
 <body>
-    <canvas id="webgl-canvas"></canvas>
+<div id="status">Memuat scene...</div>
+<div id="joy"><div id="knob"></div></div>
 
-    <div id="loading-screen">
-        <div class="loading-text">MEMUAT ASET...<br><span id="loading-progress">0%</span></div>
-        <div id="loading-detail">Menyelaraskan Rotasi & Skala</div>
-    </div>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
 
-    <div class="controls-area">
-        <div class="joystick-base" id="joystick-zone"><div class="joystick-stick" id="joystick-stick"></div></div>
-    </div>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-    <script>
-        let scene, camera, renderer, clock, mixer;
-        let ismanMesh = null;
-        let activeAction = null;
-        let characterActions = {};
-        let globalModels = {};
-        
-        // SISTEM GRID BARU 
-        const TILE_WIDTH = 4.0;  // Lebar jalan ke samping (X)
-        const TILE_LENGTH = 5.0; // Panjang potongan jalan ke depan (Z) agar rapat
+const status = document.getElementById("status");
+const joy = document.getElementById("joy");
+const knob = document.getElementById("knob");
 
-        const joystick = { active: false, x: 0, y: 0, touchId: null };
+const scene = new THREE.Scene();
+scene.background = new THREE.Color("#9da9a7");
+scene.fog = new THREE.Fog("#9da9a7", 35, 75);
 
-        initThreeEngine();
+const camera = new THREE.OrthographicCamera(
+  -10, 10, 10, -10, 0.1, 150
+);
 
-        function initThreeEngine() {
-            const canvas = document.getElementById('webgl-canvas');
-            scene = new THREE.Scene();
-            
-            // Warna dasar tanah disamakan dengan aspal gelap, agar kalau ada celah 1mm tidak terlihat
-            scene.background = new THREE.Color(0x2c303a);
-            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-            const sun = new THREE.DirectionalLight(0xffffff, 1.2); 
-            sun.position.set(20, 50, -20);
-            scene.add(sun);
+camera.position.set(15, 19, 17);
+camera.lookAt(0, 0, 0);
 
-            const ground = new THREE.Mesh(
-                new THREE.PlaneGeometry(500, 500),
-                new THREE.MeshStandardMaterial({ color: 0x22242b }) // Aspal kusam
-            );
-            ground.rotation.x = -Math.PI / 2;
-            ground.position.y = -0.1;
-            scene.add(ground);
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  powerPreference: "low-power"
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = false;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+document.body.insertBefore(renderer.domElement, status);
 
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x69745c, 2));
 
-            clock = new THREE.Clock();
-            loadAssets();
-        }
+const sunlight = new THREE.DirectionalLight(0xffedcf, 2.2);
+sunlight.position.set(-8, 18, 10);
+scene.add(sunlight);
 
-        function loadAssets() {
-            const loader = new THREE.GLTFLoader();
-            const assetsToLoad = [
-                { id: 'player', path: 'assets/models/Isman.glb' },
-                { id: 'aspal', path: 'assets/models/driveway-long.glb' },
-                { id: 'trotoar', path: 'assets/models/path-long.glb' },
-                { id: 'rumah', path: 'assets/models/building-type-a.glb' },
-                { id: 'minimarket', path: 'assets/models/building-type-j.glb' }
-            ];
+const loader = new GLTFLoader();
+const base = "./assets/models/";
 
-            let loaded = 0;
-            assetsToLoad.forEach(asset => {
-                loader.load(asset.path, (gltf) => {
-                    if(asset.id === 'player') {
-                        ismanMesh = gltf.scene;
-                        ismanMesh.scale.set(0.8, 0.8, 0.8);
-                        scene.add(ismanMesh);
-                        
-                        if(gltf.animations.length > 0) {
-                            mixer = new THREE.AnimationMixer(ismanMesh);
-                            let idleClip = gltf.animations.find(a => a.name.toLowerCase().includes('idle')) || gltf.animations[0];
-                            let walkClip = gltf.animations.find(a => a.name.toLowerCase().includes('walk') || a.name.toLowerCase().includes('run')) || idleClip;
-                            
-                            characterActions['idle'] = mixer.clipAction(idleClip);
-                            characterActions['walk'] = mixer.clipAction(walkClip);
-                            activeAction = characterActions['idle'];
-                            activeAction.play();
-                        }
-                    } else {
-                        globalModels[asset.id] = gltf.scene;
-                    }
+const mats = {
+  grass: new THREE.MeshStandardMaterial({color: "#78866a", roughness: 1}),
+  asphalt: new THREE.MeshStandardMaterial({color: "#454849", roughness: 1}),
+  sidewalk: new THREE.MeshStandardMaterial({color: "#a9a49a", roughness: 1}),
+  gutter: new THREE.MeshStandardMaterial({color: "#4c5554", roughness: 1}),
+  concrete: new THREE.MeshStandardMaterial({color: "#88877c", roughness: 1})
+};
 
-                    loaded++;
-                    document.getElementById('loading-progress').innerText = Math.floor((loaded / assetsToLoad.length) * 100) + '%';
-                    
-                    if(loaded === assetsToLoad.length) {
-                        buildTestStreet();
-                        document.getElementById('loading-screen').style.display = 'none';
-                        requestAnimationFrame(gameLoop);
-                    }
-                });
-            });
-        }
+function slab(w, h, d, material, x, y, z) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d), material
+  );
+  mesh.position.set(x, y, z);
+  scene.add(mesh);
+  return mesh;
+}
 
-        function buildTestStreet() {
-            // Bangun jalan sepanjang 15 blok ke depan dan belakang
-            for(let z = -15; z <= 15; z++) {
-                let zPos = z * TILE_LENGTH; // Jarak rapat
+/* LINGKUNGAN */
+slab(44, 0.25, 38, mats.grass, 0, -0.16, 0);
 
-                // 1. ASPAL TENGAH (Diputar 90 derajat = Math.PI / 2)
-                if(globalModels['aspal']) {
-                    let aspal = globalModels['aspal'].clone();
-                    aspal.rotation.y = Math.PI / 2; // PUTAR KE DEPAN
-                    // Skala X dinaikkan tajam (karena sudah diputar, X menjadi Z/panjang) agar rapat
-                    aspal.scale.set(5.5, 3.0, 3.0); 
-                    aspal.position.set(0, 0, zPos);
-                    scene.add(aspal);
-                }
+/* Jalan depan kost */
+slab(44, 0.12, 8, mats.asphalt, 0, -0.025, 12);
 
-                // 2. TROTOAR KIRI (Diputar 90 derajat)
-                if(globalModels['trotoar']) {
-                    let tk = globalModels['trotoar'].clone();
-                    tk.rotation.y = Math.PI / 2;
-                    tk.scale.set(5.5, 3.0, 3.0);
-                    tk.position.set(-TILE_WIDTH, 0, zPos);
-                    scene.add(tk);
-                }
+/* Trotoar */
+slab(44, 0.20, 2.5, mats.sidewalk, 0, 0.02, 7);
 
-                // 3. TROTOAR KANAN (Diputar 90 derajat)
-                if(globalModels['trotoar']) {
-                    let ta = globalModels['trotoar'].clone();
-                    ta.rotation.y = Math.PI / 2;
-                    ta.scale.set(5.5, 3.0, 3.0);
-                    ta.position.set(TILE_WIDTH, 0, zPos);
-                    scene.add(ta);
-                }
-            }
+/* Got di antara halaman dan trotoar */
+slab(44, 0.15, 0.65, mats.gutter, 0, -0.01, 8.55);
 
-            // 4. RUMAH KIRI (Pintu menghadap ke aspal)
-            if(globalModels['rumah']) {
-                let r1 = globalModels['rumah'].clone();
-                r1.scale.set(3.0, 3.0, 3.0);
-                r1.position.set(-TILE_WIDTH * 2, 0, -TILE_LENGTH); 
-                r1.rotation.y = Math.PI / 2; // Putar agar menghadap jalan
-                scene.add(r1);
-                
-                let r2 = globalModels['rumah'].clone();
-                r2.scale.set(3.0, 3.0, 3.0);
-                r2.position.set(-TILE_WIDTH * 2, 0, TILE_LENGTH * 2); 
-                r2.rotation.y = Math.PI / 2;
-                scene.add(r2);
-            }
+/* Bibir beton got */
+slab(44, 0.20, 0.13, mats.concrete, 0, 0.06, 8.18);
+slab(44, 0.20, 0.13, mats.concrete, 0, 0.06, 8.92);
 
-            // 5. MINIMARKET KANAN (Pintu menghadap ke aspal)
-            if(globalModels['minimarket']) {
-                let m1 = globalModels['minimarket'].clone();
-                m1.scale.set(3.0, 3.0, 3.0);
-                m1.position.set(TILE_WIDTH * 2, 0, 0); 
-                m1.rotation.y = -Math.PI / 2; // Putar arah sebaliknya
-                scene.add(m1);
-            }
-        }
+/* Garis pembatas jalan */
+for (let x = -20; x < 21; x += 5) {
+  slab(2.1, 0.025, 0.12, mats.sidewalk, x, 0.045, 12);
+}
 
-        const joyZone = document.getElementById('joystick-zone');
-        const joyStick = document.getElementById('joystick-stick');
-        const maxJoy = 35; 
+/* Lantai halaman kost */
+slab(18, 0.12, 7, mats.sidewalk, 0, -0.01, 3.6);
 
-        joyZone.addEventListener('touchstart', e => { e.preventDefault(); joystick.active = true; joystick.touchId = e.changedTouches[0].identifier; updateJoy(e.changedTouches[0]); }, {passive: false});
-        joyZone.addEventListener('touchmove', e => { e.preventDefault(); for(let t of e.changedTouches) if(t.identifier === joystick.touchId) updateJoy(t); }, {passive: false});
-        const endJoy = e => { for(let t of e.changedTouches) if(t.identifier === joystick.touchId) { joystick.active = false; joyStick.style.transform = `translate(0,0)`; joystick.x=0; joystick.y=0; } };
-        joyZone.addEventListener('touchend', endJoy); joyZone.addEventListener('touchcancel', endJoy);
+/* Ubin sederhana */
+const tileMat = new THREE.MeshStandardMaterial({color: "#c1b9a8"});
+for (let x = -8; x <= 8; x += 1.5) {
+  for (let z = 1; z <= 6; z += 1.5) {
+    slab(1.35, 0.025, 1.35, tileMat, x, 0.065, z);
+  }
+}
 
-        function updateJoy(t) {
-            const rect = joyZone.getBoundingClientRect();
-            let dx = t.clientX - (rect.left + rect.width/2);
-            let dy = t.clientY - (rect.top + rect.height/2);
-            let dist = Math.hypot(dx, dy);
-            if(dist > maxJoy) { dx = (dx/dist)*maxJoy; dy = (dy/dist)*maxJoy; }
-            joyStick.style.transform = `translate(${dx}px, ${dy}px)`;
-            joystick.x = dx / maxJoy; joystick.y = dy / maxJoy;
-        }
+/* Objek dan model */
+const obstacles = [];
+let character = null;
+let mixer = null;
+let walkAction = null;
+let idleAction = null;
+let activeAction = null;
+let loadedCount = 0;
+let failedCount = 0;
 
-        function gameLoop() {
-            requestAnimationFrame(gameLoop);
-            const dt = clock.getDelta();
-            
-            if(mixer) mixer.update(dt);
+function boxObstacle(x, z, w, d) {
+  obstacles.push({x, z, w, d});
+}
 
-            if(ismanMesh) {
-                let isMoving = false;
-                if(joystick.active) {
-                    let speed = 4.0 * dt; 
-                    ismanMesh.position.x += joystick.x * speed;
-                    ismanMesh.position.z += joystick.y * speed;
-                    ismanMesh.rotation.y = Math.atan2(joystick.x, joystick.y);
-                    isMoving = true;
-                }
+function addFence(x, z, length, rotation = 0) {
+  loader.load(base + "fence-1x4.glb", gltf => {
+    const obj = gltf.scene;
+    fitModel(obj, length, 1.3, 0.35);
+    obj.position.set(x, 0, z);
+    obj.rotation.y = rotation;
+    scene.add(obj);
+  }, undefined, () => {});
+}
 
-                if(characterActions['walk'] && characterActions['idle']) {
-                    let targetAction = isMoving ? characterActions['walk'] : characterActions['idle'];
-                    if (activeAction !== targetAction) {
-                        activeAction.fadeOut(0.2); targetAction.reset().fadeIn(0.2).play();
-                        activeAction = targetAction;
-                    }
-                }
+function fitModel(obj, targetX, targetY, targetZ) {
+  obj.updateMatrixWorld(true);
+  const b = new THREE.Box3().setFromObject(obj);
+  const size = b.getSize(new THREE.Vector3());
 
-                // Kamera Isometric Nyaman (Atas-Belakang)
-                camera.position.x += (ismanMesh.position.x - camera.position.x) * 0.1;
-                camera.position.y = ismanMesh.position.y + 12; // Tinggi
-                camera.position.z += (ismanMesh.position.z + 12 - camera.position.z) * 0.1; // Mundur
-                camera.lookAt(ismanMesh.position.x, ismanMesh.position.y, ismanMesh.position.z);
-            }
+  if (size.x < 0.0001 || size.y < 0.0001 || size.z < 0.0001) {
+    return;
+  }
 
-            renderer.render(scene, camera);
-        }
-    </script>
+  obj.scale.set(
+    targetX / size.x,
+    targetY / size.y,
+    targetZ / size.z
+  );
+  obj.updateMatrixWorld(true);
+
+  const fitted = new THREE.Box3().setFromObject(obj);
+  obj.position.y -= fitted.min.y;
+}
+
+function loadProp(file, position, size, collision = null) {
+  loader.load(base + file, gltf => {
+    const obj = gltf.scene;
+    fitModel(obj, size[0], size[1], size[2]);
+    obj.position.set(position[0], 0, position[1]);
+    scene.add(obj);
+
+    if (collision) {
+      boxObstacle(position[0], position[1], collision[0], collision[1]);
+    }
+    loadedCount++;
+  }, undefined, () => {
+    failedCount++;
+    console.warn("Gagal memuat model:", file);
+  });
+}
+
+/* Kost: model bangunan dari bundle */
+loadProp("building-type-a.glb", [0, 0], [12, 4.8, 6]);
+
+/* Tanaman dan pagar */
+loadProp("planter.glb", [-7, 3], [1.5, 0.6, 0.7]);
+loadProp("planter.glb", [7, 3], [1.5, 0.6, 0.7]);
+
+addFence(-5, 5.5, 4);
+addFence(5, 5.5, 4);
+
+/* Karakter Isman */
+loader.load(base + "Isman.glb", gltf => {
+  character = gltf.scene;
+
+  const b = new THREE.Box3().setFromObject(character);
+  const size = b.getSize(new THREE.Vector3());
+
+  if (size.y > 0) {
+    const scale = 1.75 / size.y;
+    character.scale.setScalar(scale);
+  }
+
+  character.updateMatrixWorld(true);
+  const fitted = new THREE.Box3().setFromObject(character);
+  character.position.y -= fitted.min.y;
+
+  character.position.set(0, 0, 6.1);
+  scene.add(character);
+
+  mixer = new THREE.AnimationMixer(character);
+
+  const clips = gltf.animations || [];
+  const idleClip = clips.find(c => /idle|stand/i.test(c.name));
+  const walkClip = clips.find(c => /walk|walking/i.test(c.name));
+
+  if (idleClip) idleAction = mixer.clipAction(idleClip);
+  if (walkClip) walkAction = mixer.clipAction(walkClip);
+
+  if (idleAction) {
+    idleAction.play();
+    activeAction = idleAction;
+  } else if (walkAction) {
+    walkAction.play();
+    activeAction = walkAction;
+  }
+
+  loadedCount++;
+  status.textContent =
+    "Isman siap • Animasi: " + clips.length;
+}, undefined, error => {
+  status.textContent = "Gagal memuat Isman.glb";
+  console.error(error);
+});
+
+/* Zona terlarang: kost, got, jalan */
+boxObstacle(0, 0, 12, 5);
+boxObstacle(0, 8.55, 44, 0.7);
+boxObstacle(0, 12, 44, 8);
+
+/* JOYSTICK */
+let joyActive = false;
+let joyX = 0;
+let joyY = 0;
+let pointerId = null;
+
+function moveStick(e) {
+  const r = joy.getBoundingClientRect();
+  const cx = r.left + r.width / 2;
+  const cy = r.top + r.height / 2;
+  let dx = e.clientX - cx;
+  let dy = e.clientY - cy;
+  const max = 49;
+  const len = Math.hypot(dx, dy);
+
+  if (len > max) {
+    dx *= max / len;
+    dy *= max / len;
+  }
+
+  joyX = dx / max;
+  joyY = dy / max;
+  knob.style.left = `calc(50% + ${dx}px)`;
+  knob.style.top = `calc(50% + ${dy}px)`;
+}
+
+function releaseStick() {
+  joyActive = false;
+  pointerId = null;
+  joyX = 0;
+  joyY = 0;
+  knob.style.left = "50%";
+  knob.style.top = "50%";
+}
+
+joy.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  joyActive = true;
+  pointerId = e.pointerId;
+  joy.setPointerCapture(pointerId);
+  moveStick(e);
+});
+
+joy.addEventListener("pointermove", e => {
+  if (joyActive && e.pointerId === pointerId) {
+    e.preventDefault();
+    moveStick(e);
+  }
+});
+
+joy.addEventListener("pointerup", releaseStick);
+joy.addEventListener("pointercancel", releaseStick);
+
+/* Collision sederhana pada posisi kaki */
+function collides(x, z) {
+  for (const o of obstacles) {
+    if (
+      Math.abs(x - o.x) < o.w / 2 + 0.25 &&
+      Math.abs(z - o.z) < o.d / 2 + 0.25
+    ) return true;
+  }
+  return false;
+}
+
+const clock = new THREE.Clock();
+const target = new THREE.Vector3(0, 0, 0);
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  if (mixer) mixer.update(dt);
+
+  if (character) {
+    let dx = joyX;
+    let dz = joyY;
+
+    const moving = Math.hypot(dx, dz) > 0.15;
+
+    if (moving) {
+      const len = Math.hypot(dx, dz);
+      dx /= Math.max(1, len);
+      dz /= Math.max(1, len);
+
+      const speed = 3.0;
+      const nx = character.position.x + dx * speed * dt;
+      const nz = character.position.z + dz * speed * dt;
+
+      if (!collides(nx, character.position.z)) {
+        character.position.x = THREE.MathUtils.clamp(nx, -19, 19);
+      }
+      if (!collides(character.position.x, nz)) {
+        character.position.z = THREE.MathUtils.clamp(nz, 9.5, 16);
+      }
+
+      character.rotation.y = Math.atan2(dx, dz);
+
+      if (walkAction && activeAction !== walkAction) {
+        if (activeAction) activeAction.fadeOut(0.15);
+        walkAction.reset().fadeIn(0.15).play();
+        activeAction = walkAction;
+      }
+    } else if (idleAction && activeAction !== idleAction) {
+      if (activeAction) activeAction.fadeOut(0.15);
+      idleAction.reset().fadeIn(0.15).play();
+      activeAction = idleAction;
+    }
+
+    target.set(
+      character.position.x,
+      0,
+      character.position.z
+    );
+  }
+
+  camera.position.x = THREE.MathUtils.lerp(
+    camera.position.x, target.x + 15, 0.08
+  );
+  camera.position.z = THREE.MathUtils.lerp(
+    camera.position.z, target.z + 17, 0.08
+  );
+  camera.lookAt(target);
+
+  renderer.render(scene, camera);
+}
+
+window.addEventListener("resize", () => {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  const aspect = window.innerWidth / window.innerHeight;
+  const view = 10;
+
+  camera.left = -view * aspect;
+  camera.right = view * aspect;
+  camera.top = view;
+  camera.bottom = -view;
+  camera.updateProjectionMatrix();
+});
+
+const aspect = window.innerWidth / window.innerHeight;
+camera.left = -10 * aspect;
+camera.right = 10 * aspect;
+camera.top = 10;
+camera.bottom = -10;
+camera.updateProjectionMatrix();
+
+animate();
+</script>
 </body>
 </html>
