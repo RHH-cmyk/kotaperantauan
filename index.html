@@ -1,490 +1,437 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Kota Perantauan 3D V1.0</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700&display=swap');
-​body {
-font-family: 'Nunito', sans-serif;
-background-color: #000;
-color: #e2e8f0;
-margin: 0;
-padding: 0;
-overflow: hidden;
-display: flex;
-align-items: center;
-justify-content: center;
-height: 100vh;
-touch-action: none;
-user-select: none;
-}
-​#game-container {
-position: relative;
-width: 100vw;
-height: 100vh;
-background-color: #0f172a;
-overflow: hidden;
-display: flex;
-align-items: center;
-justify-content: center;
-}
-​#game-view {
-position: relative;
-width: 100%;
-height: 100%;
-max-width: 1280px;
-aspect-ratio: 16/9;
-background-color: #1e293b;
-box-shadow: 0 0 20px rgba(0,0,0,1);
-}
-​@media (min-aspect-ratio: 16/9) {
-#game-view { height: 100vh; width: calc(100vh * 16 / 9); }
-}
-@media (max-aspect-ratio: 16/9) {
-#game-view { width: 100vw; height: calc(100vw * 9 / 16); }
-}
-​#webgl-canvas {
-display: block;
-width: 100%;
-height: 100%;
-}
-​.screen-layer {
-position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-display: flex; flex-direction: column; align-items: center; justify-content: center;
-}
-​/* Main Menu */
-#main-menu { background: linear-gradient(to bottom, #1e293b, #0f172a); z-index: 100; }
-.game-title { font-family: 'Press Start 2P', cursive; font-size: clamp(1.5rem, 4vw, 3rem); color: #fbbf24; text-shadow: 4px 4px 0 #92400e; margin-bottom: 2rem; text-align: center; line-height: 1.5; }
-.btn-menu {
-background: linear-gradient(to bottom, #3b82f6, #2563eb); border: 4px solid #93c5fd;
-color: white; font-family: 'Press Start 2P', cursive; font-size: clamp(0.7rem, 2vw, 1.2rem);
-padding: 1rem 2rem; border-radius: 12px; cursor: pointer; box-shadow: 0 8px 0 #1e3a8a, 0 15px 20px rgba(0,0,0,0.5);
-transition: all 0.1s; margin: 10px;
-}
-.btn-menu:active { transform: translateY(8px); box-shadow: 0 0 0 #1e3a8a; }
-​/* Loading Screen */
-#loading-screen { background-color: #0f172a; z-index: 95; display: none; }
-.loading-text { font-family: 'Press Start 2P', cursive; font-size: 1rem; color: #38bdf8; margin-bottom: 1rem; }
-​/* Cutscene */
-#cutscene { background-color: black; z-index: 90; display: none; padding: 2rem; text-align: center; position: relative; }
-.cutscene-text { font-family: 'Nunito', sans-serif; font-size: clamp(1.2rem, 3vw, 2rem); color: white; opacity: 0; transition: opacity 1s ease-in-out; max-width: 800px; line-height: 1.6; }
-.btn-skip { position: absolute; bottom: 30px; right: 30px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.5); color: white; padding: 0.8rem 1.5rem; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; border-radius: 8px; cursor: pointer; }
-​/* HUD */
-#hud { z-index: 50; pointer-events: none; justify-content: space-between; display: none; }
-.top-bar { width: 100%; display: flex; justify-content: space-between; padding: 0.4rem; pointer-events: auto; }
-​.hud-panel { background: rgba(15,23,42,0.6); border: 1px solid rgba(71,85,105,0.4); padding: 0.3rem 0.6rem; border-radius: 10px; backdrop-filter: blur(2px); transform: scale(0.85); transform-origin: top; }
-.hud-stats { display: flex; gap: 0.8rem; font-family: 'Press Start 2P', cursive; font-size: 0.5rem; color: white; align-items: center; }
-.bar-bg { width: 50px; height: 8px; background: #334155; border-radius: 4px; overflow: hidden; border: 1px solid #000; }
-.bar-fill { height: 100%; transition: width 0.3s; }
-#energy-bar { background: #facc15; }
-#mood-bar { background: #38bdf8; }
-​.hud-time { text-align: center; font-family: 'Press Start 2P', cursive; font-size: 0.5rem; }
-.hud-debt { text-align: right; font-family: 'Press Start 2P', cursive; font-size: 0.5rem; color: #ef4444; margin-top: 3px;}
-​/* Controls */
-.controls-area { width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 1rem 2vw; pointer-events: none; padding-bottom: 2rem;}
-.joystick-base { width: 110px; height: 110px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); border-radius: 50%; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
-.joystick-stick { width: 45px; height: 45px; background: rgba(255,255,255,0.7); border-radius: 50%; pointer-events: none; }
-​.btn-action { width: 75px; height: 75px; background: linear-gradient(135deg, #ef4444, #b91c1c); border: 4px solid #fca5a5; border-radius: 50%; color: white; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; display: flex; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 6px 0 #7f1d1d; }
-.btn-action:active:not(.disabled) { transform: translateY(6px); box-shadow: 0 0 0 #7f1d1d; }
-.btn-action.disabled { filter: grayscale(1); opacity: 0.4; pointer-events: none; }
-​/* Modal */
-.modal-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; pointer-events: auto;}
-.modal-box { background: #1e293b; border: 4px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; max-width: 90%; width: 400px; text-align: center; font-family: 'Nunito', sans-serif; box-shadow: 0 20px 25px rgba(0,0,0,0.5); }
-.modal-title { font-family: 'Press Start 2P', cursive; font-size: 0.9rem; color: #fbbf24; margin-bottom: 1rem; }
-.modal-desc { font-size: 1rem; margin-bottom: 1.5rem; color: #e2e8f0; white-space: pre-wrap;}
-.modal-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;}
-.btn-generic { background: #3b82f6; color: white; border: 2px solid #93c5fd; padding: 0.5rem 1rem; border-radius: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; cursor: pointer; }
-.btn-cancel { background: #ef4444; border-color: #fca5a5; }
-​.toast { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); background: rgba(30,58,138,0.9); border: 2px solid #60a5fa; color: white; padding: 0.5rem 1rem; border-radius: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.5rem; z-index: 80; pointer-events: none; opacity: 0; transition: opacity 0.3s; text-align: center;}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kota Perantauan 3D</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700&display=swap');
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Nunito', sans-serif; background-color: #000;
+            color: #e2e8f0; overflow: hidden; width: 100vw; height: 100vh;
+            touch-action: none; user-select: none;
+        }
+
+        #game-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #0f172a; display: flex; align-items: center; justify-content: center;
+        }
+
+        #webgl-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+        }
+
+        .screen-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(15, 23, 42, 0.95);
+        }
+
+        #main-menu { z-index: 50; }
+        .game-title { font-family: 'Press Start 2P', cursive; font-size: clamp(1.5rem, 4vw, 3rem); color: #fbbf24; text-shadow: 4px 4px 0 #92400e; margin-bottom: 2rem; text-align: center; line-height: 1.5; }
+        .btn-menu {
+            background: linear-gradient(to bottom, #3b82f6, #2563eb); border: 4px solid #93c5fd;
+            color: white; font-family: 'Press Start 2P', cursive; font-size: 1rem;
+            padding: 1rem 2rem; border-radius: 12px; cursor: pointer; box-shadow: 0 8px 0 #1e3a8a;
+            margin: 10px; transition: transform 0.1s;
+        }
+        .btn-menu:active { transform: translateY(8px); box-shadow: 0 0 0 #1e3a8a; }
+
+        #loading-screen { z-index: 60; display: none; }
+        .loading-text { font-family: 'Press Start 2P', cursive; font-size: 1.2rem; color: #38bdf8; margin-bottom: 1rem; }
+
+        #hud { z-index: 10; display: none; background: transparent; pointer-events: none; justify-content: space-between; padding-bottom: 2rem;}
+        
+        .top-bar { width: 100%; display: flex; justify-content: space-between; padding: 10px; pointer-events: auto; position: absolute; top: 0; left: 0;}
+        .hud-panel { background: rgba(15,23,42,0.7); border: 2px solid rgba(71,85,105,0.8); padding: 8px 12px; border-radius: 12px; backdrop-filter: blur(4px); }
+        .hud-stats { display: flex; flex-direction: column; gap: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; color: white; }
+        .stat-row { display: flex; align-items: center; gap: 10px; }
+        .bar-bg { width: 80px; height: 10px; background: #334155; border-radius: 5px; overflow: hidden; border: 1px solid #000; }
+        .bar-fill { height: 100%; transition: width 0.3s; }
+        #energy-bar { background: #facc15; }
+        #mood-bar { background: #38bdf8; }
+        
+        .hud-time { text-align: right; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; }
+        .hud-debt { color: #ef4444; margin-top: 5px; }
+
+        .controls-area { width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 2rem; pointer-events: none; position: absolute; bottom: 30px; left: 0;}
+        .joystick-base { width: 120px; height: 120px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
+        .joystick-stick { width: 50px; height: 50px; background: rgba(255,255,255,0.8); border-radius: 50%; pointer-events: none; }
+
+        .btn-action { width: 80px; height: 80px; background: linear-gradient(135deg, #ef4444, #b91c1c); border: 4px solid #fca5a5; border-radius: 50%; color: white; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; display: flex; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 6px 0 #7f1d1d; }
+        .btn-action:active:not(.disabled) { transform: translateY(6px); box-shadow: 0 0 0 #7f1d1d; }
+        .btn-action.disabled { filter: grayscale(1); opacity: 0.5; pointer-events: none; }
+
+        #modal-ui { z-index: 100; display: none; background: rgba(0,0,0,0.8); }
+        .modal-box { background: #1e293b; border: 4px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; max-width: 90%; width: 350px; text-align: center; }
+        .modal-title { font-family: 'Press Start 2P', cursive; font-size: 1rem; color: #fbbf24; margin-bottom: 1rem; }
+        .modal-desc { font-size: 1.1rem; margin-bottom: 1.5rem; color: #e2e8f0; white-space: pre-wrap; }
+        .modal-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;}
+        .btn-generic { background: #3b82f6; color: white; border: 2px solid #93c5fd; padding: 0.6rem 1.2rem; border-radius: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; cursor: pointer; }
+        .btn-cancel { background: #ef4444; border-color: #fca5a5; }
+        
+        #toast { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); background: rgba(30,58,138,0.9); border: 2px solid #60a5fa; padding: 8px 16px; border-radius: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; z-index: 80; opacity: 0; transition: opacity 0.3s; color: white; pointer-events: none;}
+    </style>
 </head>
 <body>
-​<div id="game-container">
-<div id="game-view">
-<canvas id="webgl-canvas"></canvas>
-​<!-- Main Menu -->
-<div id="main-menu" class="screen-layer">
-<div class="game-title">KOTA
-PERANTAUAN 3D</div>
-<div style="font-family: 'Nunito', sans-serif; color: #94a3b8; margin-bottom: 2rem;">Warcraft Isometric Style - V1.0</div>
-<button class="btn-menu" onclick="startLoading()">Mulai Perantauan</button>
-<button class="btn-menu" style="background: #475569; border-color: #94a3b8;" onclick="toggleFullScreen()">Full Screen</button>
-</div>
-​<!-- Loading Screen -->
-<div id="loading-screen" class="screen-layer">
-<div class="loading-text">MEMUAT DUNIA 3D...</div>
-<div id="loading-progress" style="font-family: 'Press Start 2P'; font-size: 0.7rem; color: #fbbf24;">0%</div>
-</div>
-​<!-- Cutscene -->
-<div id="cutscene" class="screen-layer">
-<div id="cs-text" class="cutscene-text"></div>
-<button class="btn-skip" onclick="skipCutscene()">SKIP >></button>
-</div>
-​<!-- HUD -->
-<div id="hud" class="screen-layer">
-<div class="top-bar">
-<div class="hud-panel hud-stats">
-<div class="stat-item">💰 <span id="ui-money">Rp 1.000.000</span></div>
-<div class="stat-item">⚡ <div class="bar-bg"><div id="energy-bar" class="bar-fill" style="width: 100%;"></div></div></div>
-<div class="stat-item">😊 <div class="bar-bg"><div id="mood-bar" class="bar-fill" style="width: 100%;"></div></div></div>
-</div>
-<div class="hud-panel hud-time">
-<div style="color: #fbbf24; margin-bottom: 3px;">HARI <span id="ui-day">1</span> / 365</div>
-<div id="ui-clock" style="font-size: 0.7rem; margin-bottom: 3px;">08:00</div>
-<div class="hud-debt">UTANG: <span id="ui-debt">Rp 50 Juta</span></div>
-</div>
-</div>
-​<div class="controls-area">
-<div class="joystick-base" id="joystick-zone">
-<div class="joystick-stick" id="joystick-stick"></div>
-</div>
-<div class="btn-action disabled" id="btn-action">AKSI</div>
-</div>
-</div>
-​<div id="toast" class="toast">Notifikasi</div>
-​<!-- Generic Modal -->
-<div id="modal-ui" class="modal-overlay">
-<div class="modal-box">
-<div class="modal-title" id="modal-title">Judul</div>
-<div class="modal-desc" id="modal-desc">Deskripsi...</div>
-<div class="modal-buttons" id="modal-buttons"></div>
-</div>
-</div>
-​</div>
-</div>
-​<script>
-// Konfigurasi Game State & Ekonomi tetap utuh
-const gameState = {
-isPlaying: false,
-money: 1000000,
-debt: 50000000,
-energy: 100,
-mood: 100,
-day: 1,
-maxDays: 365,
-inGameMinutes: 8 * 60,
-kostType: null,
-kostPaidUntil: 0,
-jobId: null,
-jobWorkedToday: false
-};
-​const JOB_DB = {
-'cuci_piring': { name: 'Tukang Cuci Piring', salary: 40000, energy: -40, mood: -10, chance: 0.8, reqHours: 6, open: 17, close: 24, desc: 'Kerja di Pasar Malam.' },
-'kuli': { name: 'Kuli Panggul', salary: 80000, energy: -70, mood: -5, chance: 0.7, reqHours: 8, open: 6, close: 18, desc: 'Kerja kasar di Terminal.' },
-'minimarket': { name: 'Pelayan Minimarket', salary: 75000, energy: -30, mood: -15, chance: 0.5, reqHours: 8, open: 0, close: 24, desc: 'Shift 24 Jam.' },
-'kurir': { name: 'Kurir Paket', salary: 100000, energy: -40, mood: -20, chance: 0.4, reqHours: 8, open: 8, close: 17, desc: 'Kurir keliling kota.' },
-'admin': { name: 'Staff Admin', salary: 200000, energy: -20, mood: -40, chance: 0.15, reqHours: 9, open: 8, close: 17, desc: 'Kerja kantoran.' }
-};
-​const KOST_DB = {
-'triplek': { name: 'Kost Triplek', price: 300000, energyRec: 60, moodRec: -10, desc: 'Area Kumuh.' },
-'standar': { name: 'Kost Standar', price: 600000, energyRec: 90, moodRec: 0, desc: 'Area Perumahan.' },
-'vip': { name: 'Kost VIP', price: 1200000, energyRec: 100, moodRec: 20, desc: 'Kawasan Bisnis.' }
-};
-​// Three.js Setup
-let scene, camera, renderer;
-let ismanMesh = null;
-let mixer = null;
-let clock = new THREE.Clock();
-let buildings = [];
-let interactZones = [];
-let activeInteractTarget = null;
-​const keys = {};
-window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-​function toggleFullScreen() {
-if (!document.documentElement.fullscreenElement) {
-document.documentElement.requestFullscreen().catch(err => console.log(err));
-} else {
-if (document.exitFullscreen) document.exitFullscreen();
-}
-}
-​function formatRp(amount) { return "Rp " + amount.toLocaleString('id-ID'); }
-function showToast(msg) {
-const t = document.getElementById('toast');
-t.innerText = msg; t.style.opacity = 1;
-setTimeout(() => t.style.opacity = 0, 3000);
-}
-​function startLoading() {
-document.getElementById('main-menu').style.display = 'none';
-document.getElementById('loading-screen').style.display = 'flex';
-initThreeEngine();
-}
-​function initThreeEngine() {
-const canvas = document.getElementById('webgl-canvas');
-scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0f172a);
-scene.fog = new THREE.FogExp2(0x0f172a, 0.015);
-​camera = new THREE.PerspectiveCamera(45, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
-​renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
-renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-renderer.shadowMap.enabled = true;
-​// Lighting (Warcraft style sunlight)
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-scene.add(ambientLight);
-​const sun = new THREE.DirectionalLight(0xffedd5, 1.2);
-sun.position.set(30, 50, 30);
-sun.castShadow = true;
-scene.add(sun);
-​// Ground
-const groundGeo = new THREE.PlaneGeometry(300, 300);
-const groundMat = new THREE.MeshStandardMaterial({ color: 0x166534 });
-const ground = new THREE.Mesh(groundGeo, groundMat);
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
-scene.add(ground);
-​// Load Assets
-loadGameAssets();
-}
-​const loader = new THREE.GLTFLoader();
-let loadedCount = 0;
-const totalAssetsToLoad = 5; // Isman + beberapa bangunan sample
-​function updateLoadingProgress() {
-loadedCount++;
-let pct = Math.floor((loadedCount / totalAssetsToLoad) * 100);
-document.getElementById('loading-progress').innerText = pct + '%';
-if (loadedCount >= totalAssetsToLoad) {
-setTimeout(finishLoading, 500);
-}
-}
-​function loadGameAssets() {
-// 1. Muat Isman (Casual Character)
-loader.load('./assets/models/Casual Character.glb', (gltf) => {
-ismanMesh = gltf.scene;
-ismanMesh.scale.set(1.2, 1.2, 1.2);
-ismanMesh.position.set(0, 0, 0);
-ismanMesh.traverse(n => { if(n.isMesh) n.castShadow = true; });
-scene.add(ismanMesh);
-​if (gltf.animations.length > 0) {
-mixer = new THREE.AnimationMixer(ismanMesh);
-// Ambil animasi pertama (biasanya idle/walk)
-const action = mixer.clipAction(gltf.animations[0]);
-action.play();
-}
-updateLoadingProgress();
-}, undefined, (err) => { console.log('Gagal muat isman, pakai kotak pengganti', err); createFallbackIsman(); updateLoadingProgress(); });
-​// 2. Muat Variasi Bangunan dari Kenney (Secara Random)
-const buildingFiles = ['building-type-i.glb', 'building-type-j.glb', 'building-type-k.glb', 'building-type-l.glb', 'building-type-m.glb'];
-​buildingFiles.forEach((file, index) => {
-loader.load(./assets/models/${file}, (gltf) => {
-const b = gltf.scene;
-let x = (index % 3) * 35 - 35;
-let z = Math.floor(index / 3) * 35 - 35;
-b.position.set(x, 0, z);
-b.scale.set(1.5, 1.5, 1.5);
-b.traverse(n => { if(n.isMesh) n.receiveShadow = true; });
-scene.add(b);
-​// Daftarkan sebagai area interaksi / bangunan
-interactZones.push({
-x: x, z: z, radius: 15,
-name: index === 0 ? "Kost Triplek" : index === 1 ? "Minimarket" : "Gedung Kantor",
-type: index === 0 ? "kost" : "job",
-id: index === 0 ? "triplek" : "minimarket"
-});
-​updateLoadingProgress();
-}, undefined, () => { updateLoadingProgress(); });
-});
-}
-​function createFallbackIsman() {
-const geo = new THREE.BoxGeometry(2, 4, 2);
-const mat = new THREE.MeshStandardMaterial({ color: 0xfcd34d });
-ismanMesh = new THREE.Mesh(geo, mat);
-ismanMesh.position.set(0, 2, 0);
-scene.add(ismanMesh);
-}
-​function finishLoading() {
-document.getElementById('loading-screen').style.display = 'none';
-startCutscene();
-}
-​const cutsceneTexts = [
-"Tiba di kota besar dengan sisa uang tabungan tipis...",
-"Bapak menaruh harapan penuh agar utang 50 Juta bisa lunas.",
-"Isman: 'Aku harus mulai mencari tempat tinggal dan pekerjaan di sini.'"
-];
-let csIndex = 0;
-let csTimeout;
-​function startCutscene() {
-document.getElementById('cutscene').style.display = 'flex';
-showNextCutscene();
-}
-​function showNextCutscene() {
-const csText = document.getElementById('cs-text');
-if (csIndex < cutsceneTexts.length) {
-csText.style.opacity = 0;
-csTimeout = setTimeout(() => {
-csText.innerText = cutsceneTexts[csIndex];
-csText.style.opacity = 1;
-csIndex++;
-csTimeout = setTimeout(showNextCutscene, 4000);
-}, 1000);
-} else {
-csText.style.opacity = 0;
-csTimeout = setTimeout(startGame, 1000);
-}
-}
-​function skipCutscene() {
-clearTimeout(csTimeout);
-startGame();
-}
-​function startGame() {
-document.getElementById('cutscene').style.display = 'none';
-document.getElementById('hud').style.display = 'flex';
-gameState.isPlaying = true;
-initAudioSystem();
-}
-​let isAudioInit = false;
-let bgmSynth;
-function initAudioSystem() {
-if(isAudioInit) return;
-Tone.start();
-bgmSynth = new Tone.Synth().toDestination();
-bgmSynth.volume.value = -25;
-const loop = new Tone.Loop(time => {
-bgmSynth.triggerAttackRelease("C3", "2n", time);
-}, "4n").start(0);
-Tone.Transport.bpm.value = 60;
-Tone.Transport.start();
-isAudioInit = true;
-}
-​// Joystick Logic
-const joystick = { active: false, x: 0, y: 0, touchId: null };
-const joyZone = document.getElementById('joystick-zone');
-const joyStick = document.getElementById('joystick-stick');
-const maxJoy = 35;
-​joyZone.addEventListener('touchstart', e => {
-e.preventDefault();
-if(!joystick.active) {
-const t = e.changedTouches[0];
-joystick.active = true; joystick.touchId = t.identifier;
-updateJoy(t);
-}
-}, {passive: false});
-​joyZone.addEventListener('touchmove', e => {
-e.preventDefault();
-for(let i=0; i<e.changedTouches.length; i++) {
-if(e.changedTouches[i].identifier === joystick.touchId) updateJoy(e.changedTouches[i]);
-}
-}, {passive: false});
-​const endJoy = e => {
-for(let i=0; i<e.changedTouches.length; i++) {
-if(e.changedTouches[i].identifier === joystick.touchId) {
-joystick.active = false; joystick.touchId = null;
-joystick.x = 0; joystick.y = 0;
-joyStick.style.transform = translate(0px, 0px);
-}
-}
-};
-joyZone.addEventListener('touchend', endJoy); joyZone.addEventListener('touchcancel', endJoy);
-​function updateJoy(t) {
-const rect = joyZone.getBoundingClientRect();
-let dx = t.clientX - (rect.left + rect.width/2);
-let dy = t.clientY - (rect.top + rect.height/2);
-let dist = Math.hypot(dx, dy);
-if(dist > maxJoy) { dx = (dx/dist)*maxJoy; dy = (dy/dist)*maxJoy; }
-joyStick.style.transform = translate(${dx}px, ${dy}px);
-joystick.x = dx / maxJoy; joystick.y = dy / maxJoy;
-}
-​// Aksi Button
-const btnAction = document.getElementById('btn-action');
-btnAction.addEventListener('touchstart', e => {
-e.preventDefault();
-if(!btnAction.classList.contains('disabled')) triggerInteraction();
-}, {passive: false});
-​function triggerInteraction() {
-if(!activeInteractTarget) return;
-const t = activeInteractTarget;
-if(t.type === 'kost') {
-const k = KOST_DB[t.id];
-openModal(k.name, ${k.desc}\nHarga: ${formatRp(k.price)}/30 Hari, [
-{ text: "Sewa/Tidur", action: () => {
-gameState.money -= k.price;
-gameState.kostType = t.id;
-gameState.energy = 100;
-showToast("Beristirahat di kost...");
-}},
-{ text: "Batal", cancel: true }
-]);
-} else if(t.type === 'job') {
-const job = JOB_DB['minimarket'];
-openModal(t.name, Peluang Kerja: ${job.name}\nGaji: ${formatRp(job.salary)}, [
-{ text: "Kerja Sekarang", action: () => {
-gameState.money += job.salary;
-gameState.energy -= 30;
-showToast(Mendapat ${formatRp(job.salary)});
-}},
-{ text: "Batal", cancel: true }
-]);
-}
-}
-​function openModal(title, desc, buttons) {
-document.getElementById('modal-title').innerText = title;
-document.getElementById('modal-desc').innerText = desc;
-const c = document.getElementById('modal-buttons'); c.innerHTML = '';
-buttons.forEach(b => {
-const btn = document.createElement('button');
-btn.className = btn-generic ${b.cancel ? 'btn-cancel' : ''};
-btn.innerText = b.text;
-btn.onclick = () => { closeModal(); if(b.action) b.action(); };
-c.appendChild(btn);
-});
-document.getElementById('modal-ui').style.display = 'flex';
-}
-function closeModal() { document.getElementById('modal-ui').style.display = 'none'; }
-​// Main Loop 3D
-let prevTime = 0;
-function animate(timestamp) {
-requestAnimationFrame(animate);
-if(!gameState.isPlaying) return;
-​const dt = (timestamp - prevTime) / 1000;
-prevTime = timestamp;
-​if(mixer) mixer.update(dt);
-​// Gerakan Isman
-if(ismanMesh) {
-let mx = 0, mz = 0;
-if(keys.w || keys.arrowup) mz -= 1;
-if(keys.s || keys.arrowdown) mz += 1;
-if(keys.a || keys.arrowleft) mx -= 1;
-if(keys.d || keys.arrowright) mx += 1;
-​if(joystick.active) { mx = joystick.x; mz = joystick.y; }
-​if(mx !== 0 || mz !== 0) {
-let speed = 12 * dt;
-ismanMesh.position.x += mx * speed;
-ismanMesh.position.z += mz * speed;
-ismanMesh.rotation.y = Math.atan2(mx, mz);
-}
-​// Kamera Warcraft Isometric Follow
-camera.position.x = ismanMesh.position.x + 15;
-camera.position.y = ismanMesh.position.y + 25;
-camera.position.z = ismanMesh.position.z + 20;
-camera.lookAt(ismanMesh.position.x, ismanMesh.position.y + 2, ismanMesh.position.z);
-​// Cek Jarak Interaksi dengan Bangunan/Zonasi
-activeInteractTarget = null;
-for(let zone of interactZones) {
-let dist = Math.hypot(ismanMesh.position.x - zone.x, ismanMesh.position.z - zone.z);
-if(dist < zone.radius) {
-activeInteractTarget = zone;
-break;
-}
-}
-​if(activeInteractTarget) {
-btnAction.classList.remove('disabled');
-} else {
-btnAction.classList.add('disabled');
-}
-}
-​// Update UI HUD
-document.getElementById('ui-money').innerText = formatRp(Math.floor(gameState.money));
-document.getElementById('ui-debt').innerText = formatRp(Math.floor(gameState.debt));
-document.getElementById('energy-bar').style.width = gameState.energy + '%';
-document.getElementById('mood-bar').style.width = gameState.mood + '%';
-​renderer.render(scene, camera);
-}
-​requestAnimationFrame(animate);
-</script>
+
+    <div id="game-container">
+        <canvas id="webgl-canvas"></canvas>
+
+        <div id="main-menu" class="screen-layer">
+            <div class="game-title">KOTA<br>PERANTAUAN 3D</div>
+            <div style="color: #94a3b8; margin-bottom: 2rem;">Warcraft Isometric Style - V1.0</div>
+            <button class="btn-menu" onclick="startLoading()">Mulai Merantau</button>
+            <button class="btn-menu" style="background: #475569; border-color: #94a3b8;" onclick="toggleFullScreen()">Full Screen</button>
+        </div>
+
+        <div id="loading-screen" class="screen-layer">
+            <div class="loading-text">MEMUAT DUNIA 3D...</div>
+            <div id="loading-progress" style="font-family: 'Press Start 2P'; font-size: 1rem; color: #fbbf24;">0%</div>
+            <div style="color: #94a3b8; font-size: 0.8rem; margin-top: 10px;" id="loading-detail">Menyiapkan aset...</div>
+        </div>
+
+        <div id="hud" class="screen-layer">
+            <div class="top-bar">
+                <div class="hud-panel hud-stats">
+                    <div class="stat-row">💰 <span id="ui-money">Rp 1.000.000</span></div>
+                    <div class="stat-row">⚡ <div class="bar-bg"><div id="energy-bar" class="bar-fill" style="width: 100%;"></div></div></div>
+                    <div class="stat-row">😊 <div class="bar-bg"><div id="mood-bar" class="bar-fill" style="width: 100%;"></div></div></div>
+                </div>
+                <div class="hud-panel hud-time">
+                    <div style="color: #fbbf24; margin-bottom: 5px;">HARI <span id="ui-day">1</span>/365</div>
+                    <div id="ui-clock" style="font-size: 0.9rem; margin-bottom: 5px;">08:00</div>
+                    <div class="hud-debt">UTANG: <span id="ui-debt">Rp 50 Juta</span></div>
+                </div>
+            </div>
+
+            <div class="controls-area">
+                <div class="joystick-base" id="joystick-zone">
+                    <div class="joystick-stick" id="joystick-stick"></div>
+                </div>
+                <div class="btn-action disabled" id="btn-action">AKSI</div>
+            </div>
+        </div>
+
+        <div id="toast">Notifikasi</div>
+
+        <div id="modal-ui" class="screen-layer">
+            <div class="modal-box">
+                <div class="modal-title" id="modal-title">Judul</div>
+                <div class="modal-desc" id="modal-desc">Deskripsi...</div>
+                <div class="modal-buttons" id="modal-buttons"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const gameState = {
+            isPlaying: false, money: 1000000, debt: 50000000, energy: 100, mood: 100,
+            day: 1, inGameMinutes: 8 * 60
+        };
+
+        let scene, camera, renderer, clock, mixer;
+        let ismanMesh = null;
+        let characterActions = {};
+        let activeAction = null;
+        let interactZones = [];
+        let activeInteractTarget = null;
+        
+        // Multi-touch Joystick
+        const joystick = { active: false, x: 0, y: 0, touchId: null };
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(()=>{}); } 
+            else { if (document.exitFullscreen) document.exitFullscreen(); }
+        }
+        function formatRp(amount) { return "Rp " + amount.toLocaleString('id-ID'); }
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg; t.style.opacity = 1;
+            setTimeout(() => t.style.opacity = 0, 3000);
+        }
+
+        function startLoading() {
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('loading-screen').style.display = 'flex';
+            initThreeEngine();
+        }
+
+        function initThreeEngine() {
+            const canvas = document.getElementById('webgl-canvas');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB); // Langit biru
+            scene.fog = new THREE.FogExp2(0x87CEEB, 0.015);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            // Pencahayaan
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const sun = new THREE.DirectionalLight(0xfff5b6, 1.2);
+            sun.position.set(20, 40, 20);
+            sun.castShadow = true;
+            sun.shadow.camera.left = -30; sun.shadow.camera.right = 30;
+            sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30;
+            scene.add(sun);
+
+            // Lantai Aspal/Tanah
+            const groundGeo = new THREE.PlaneGeometry(200, 200);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x4b5563 }); // Abu-abu aspal
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            clock = new THREE.Clock();
+            loadAssets();
+        }
+
+        function loadAssets() {
+            const loader = new THREE.GLTFLoader();
+            const assetsToLoad = [
+                { path: './assets/models/Isman.glb', type: 'player' },
+                { path: './assets/models/building-type-i.glb', type: 'building', name: 'Kost Triplek', job: 'kost', x: -15, z: -15 },
+                { path: './assets/models/building-type-j.glb', type: 'building', name: 'Minimarket', job: 'minimarket', x: 15, z: -15 },
+                { path: './assets/models/building-type-k.glb', type: 'building', name: 'Bank Pusat', job: 'bank', x: -15, z: 15 }
+            ];
+
+            let loadedCount = 0;
+
+            assetsToLoad.forEach(asset => {
+                document.getElementById('loading-detail').innerText = `Memuat: ${asset.path.split('/').pop()}`;
+                
+                loader.load(asset.path, (gltf) => {
+                    const model = gltf.scene;
+                    model.traverse(n => { if(n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
+                    
+                    if(asset.type === 'player') {
+                        ismanMesh = model;
+                        ismanMesh.scale.set(1.5, 1.5, 1.5); // Sesuaikan ukuran
+                        scene.add(ismanMesh);
+                        
+                        // Setup Animasi Isman
+                        if(gltf.animations && gltf.animations.length > 0) {
+                            mixer = new THREE.AnimationMixer(ismanMesh);
+                            gltf.animations.forEach(clip => {
+                                const action = mixer.clipAction(clip);
+                                // Simpan animasi berdasarkan namanya (huruf kecil)
+                                characterActions[clip.name.toLowerCase()] = action;
+                            });
+                            // Mainkan animasi 'idle' jika ada, kalau tidak animasi pertama
+                            activeAction = characterActions['idle'] || mixer.clipAction(gltf.animations[0]);
+                            if(activeAction) activeAction.play();
+                        }
+                    } else if(asset.type === 'building') {
+                        model.position.set(asset.x, 0, asset.z);
+                        model.scale.set(2, 2, 2);
+                        scene.add(model);
+                        
+                        // Daftarkan area interaksi
+                        interactZones.push({
+                            x: asset.x, z: asset.z, radius: 8,
+                            name: asset.name, type: asset.job
+                        });
+                    }
+
+                    loadedCount++;
+                    document.getElementById('loading-progress').innerText = Math.floor((loadedCount / assetsToLoad.length) * 100) + '%';
+                    if(loadedCount === assetsToLoad.length) setTimeout(startGame, 500);
+
+                }, undefined, (error) => {
+                    console.error("Gagal memuat:", asset.path, error);
+                    loadedCount++; // Lanjut load yang lain agar tidak stuck
+                    if(loadedCount === assetsToLoad.length) setTimeout(startGame, 500);
+                });
+            });
+        }
+
+        function startGame() {
+            document.getElementById('loading-screen').style.display = 'none';
+            document.getElementById('hud').style.display = 'flex';
+            
+            // Perbaiki ukuran canvas jika orientasi layar berubah
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            gameState.isPlaying = true;
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Joystick Setup
+        const joyZone = document.getElementById('joystick-zone');
+        const joyStick = document.getElementById('joystick-stick');
+        const maxJoy = 35;
+
+        joyZone.addEventListener('touchstart', e => {
+            e.preventDefault();
+            if(!joystick.active) {
+                const t = e.changedTouches[0];
+                joystick.active = true; joystick.touchId = t.identifier;
+                updateJoy(t);
+            }
+        }, {passive: false});
+
+        joyZone.addEventListener('touchmove', e => {
+            e.preventDefault();
+            for(let i=0; i<e.changedTouches.length; i++) {
+                if(e.changedTouches[i].identifier === joystick.touchId) updateJoy(e.changedTouches[i]);
+            }
+        }, {passive: false});
+
+        const endJoy = e => {
+            for(let i=0; i<e.changedTouches.length; i++) {
+                if(e.changedTouches[i].identifier === joystick.touchId) {
+                    joystick.active = false; joystick.touchId = null;
+                    joystick.x = 0; joystick.y = 0;
+                    joyStick.style.transform = `translate(0px, 0px)`;
+                }
+            }
+        };
+        joyZone.addEventListener('touchend', endJoy); joyZone.addEventListener('touchcancel', endJoy);
+
+        function updateJoy(t) {
+            const rect = joyZone.getBoundingClientRect();
+            let dx = t.clientX - (rect.left + rect.width/2);
+            let dy = t.clientY - (rect.top + rect.height/2);
+            let dist = Math.hypot(dx, dy);
+            if(dist > maxJoy) { dx = (dx/dist)*maxJoy; dy = (dy/dist)*maxJoy; }
+            joyStick.style.transform = `translate(${dx}px, ${dy}px)`;
+            joystick.x = dx / maxJoy; joystick.y = dy / maxJoy;
+        }
+
+        const btnAction = document.getElementById('btn-action');
+        btnAction.addEventListener('touchstart', e => {
+            e.preventDefault();
+            if(!btnAction.classList.contains('disabled')) handleInteraction();
+        }, {passive: false});
+
+        function handleInteraction() {
+            if(!activeInteractTarget) return;
+            const t = activeInteractTarget;
+            
+            if(t.type === 'kost') {
+                openModal(t.name, "Sewa: Rp 300.000 / Bulan\nPulihkan semua energi.", [
+                    { text: "Tidur Sekarang", action: () => {
+                        if(gameState.money >= 300000) {
+                            gameState.money -= 300000; gameState.energy = 100;
+                            showToast("Kamu menyewa kost dan beristirahat.");
+                        } else { showToast("Uang tidak cukup!"); }
+                    }},
+                    { text: "Batal", cancel: true }
+                ]);
+            } else if(t.type === 'minimarket') {
+                openModal(t.name, "Peluang Kerja: Kasir\nGaji: Rp 75.000 (Shift 8 Jam)", [
+                    { text: "Kerja", action: () => {
+                        gameState.money += 75000; gameState.energy -= 30; gameState.inGameMinutes += (8*60);
+                        showToast("Selesai shift! Dibayar Rp 75.000");
+                    }},
+                    { text: "Batal", cancel: true }
+                ]);
+            } else if(t.type === 'bank') {
+                openModal(t.name, "Bayar Cicilan Utang Bapak.\nSisa: " + formatRp(gameState.debt), [
+                    { text: "Bayar Rp 1 Juta", action: () => {
+                        if(gameState.money >= 1000000) {
+                            gameState.money -= 1000000; gameState.debt -= 1000000;
+                            showToast("Pembayaran berhasil!");
+                        } else { showToast("Uangmu kurang!"); }
+                    }},
+                    { text: "Batal", cancel: true }
+                ]);
+            }
+        }
+
+        function openModal(title, desc, buttons) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            const c = document.getElementById('modal-buttons'); c.innerHTML = '';
+            buttons.forEach(b => {
+                const btn = document.createElement('button');
+                btn.className = `btn-generic ${b.cancel ? 'btn-cancel' : ''}`;
+                btn.innerText = b.text;
+                btn.onclick = () => { document.getElementById('modal-ui').style.display = 'none'; if(b.action) b.action(); };
+                c.appendChild(btn);
+            });
+            document.getElementById('modal-ui').style.display = 'flex';
+        }
+
+        function gameLoop() {
+            requestAnimationFrame(gameLoop);
+            if(!gameState.isPlaying) return;
+
+            const dt = clock.getDelta();
+            if(mixer) mixer.update(dt);
+
+            // Gerakan Isman
+            if(ismanMesh) {
+                let isMoving = false;
+                if(joystick.active) {
+                    let speed = 8 * dt;
+                    ismanMesh.position.x += joystick.x * speed;
+                    ismanMesh.position.z += joystick.y * speed;
+                    ismanMesh.rotation.y = Math.atan2(joystick.x, joystick.y);
+                    isMoving = true;
+                }
+
+                // Ganti Animasi Walk / Idle
+                let targetActionName = isMoving ? (characterActions['walk'] ? 'walk' : 'run') : 'idle';
+                let targetAction = characterActions[targetActionName];
+                
+                // Fallback jika nama animasi beda
+                if(!targetAction && isMoving) targetAction = characterActions[Object.keys(characterActions)[1]];
+                if(!targetAction && !isMoving) targetAction = characterActions[Object.keys(characterActions)[0]];
+
+                if (targetAction && activeAction !== targetAction) {
+                    activeAction.fadeOut(0.2);
+                    targetAction.reset().fadeIn(0.2).play();
+                    activeAction = targetAction;
+                }
+
+                // Kamera Mengikuti Isman (Warcraft Angle)
+                camera.position.x = ismanMesh.position.x + 10;
+                camera.position.y = ismanMesh.position.y + 15;
+                camera.position.z = ismanMesh.position.z + 15;
+                camera.lookAt(ismanMesh.position);
+
+                // Cek Area Interaksi
+                activeInteractTarget = null;
+                for(let zone of interactZones) {
+                    let dist = Math.hypot(ismanMesh.position.x - zone.x, ismanMesh.position.z - zone.z);
+                    if(dist < zone.radius) { activeInteractTarget = zone; break; }
+                }
+
+                if(activeInteractTarget) btnAction.classList.remove('disabled');
+                else btnAction.classList.add('disabled');
+            }
+
+            // Update UI HUD
+            document.getElementById('ui-money').innerText = formatRp(Math.floor(gameState.money));
+            document.getElementById('ui-debt').innerText = formatRp(Math.floor(gameState.debt));
+            document.getElementById('energy-bar').style.width = Math.max(0, gameState.energy) + '%';
+            document.getElementById('mood-bar').style.width = Math.max(0, gameState.mood) + '%';
+            
+            gameState.inGameMinutes += dt * 0.5; // Waktu berjalan
+            let h = Math.floor(gameState.inGameMinutes / 60) % 24;
+            let m = Math.floor(gameState.inGameMinutes % 60);
+            document.getElementById('ui-clock').innerText = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+            if(gameState.inGameMinutes >= 24 * 60) { gameState.inGameMinutes = 0; gameState.day++; }
+            document.getElementById('ui-day').innerText = gameState.day;
+
+            renderer.render(scene, camera);
+        }
+    </script>
 </body>
 </html>
