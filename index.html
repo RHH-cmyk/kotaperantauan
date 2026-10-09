@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kota Perantauan V1.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700&display=swap');
 
@@ -264,7 +265,59 @@
             }
         }
 
+        let isAudioInitialized = false;
+        let bgmSynth, bgmLoop;
+        let walkSynth;
+        let lastStepTime = 0;
+
+        async function initAudio() {
+            if (isAudioInitialized) return;
+            try {
+                await Tone.start();
+                
+                // Musik Latar (Tenang & Santai)
+                bgmSynth = new Tone.PolySynth(Tone.FMSynth, {
+                    harmonicity: 0.5,
+                    modulationIndex: 1.2,
+                    oscillator: { type: "sine" },
+                    envelope: { attack: 2, decay: 2, sustain: 0.8, release: 4 },
+                    modulation: { type: "triangle" },
+                    modulationEnvelope: { attack: 0.5, decay: 0.5, sustain: 1, release: 0.5 }
+                }).toDestination();
+                bgmSynth.volume.value = -18;
+
+                const chords = [
+                    ["C4", "E4", "G4", "B4"],
+                    ["F3", "A3", "C4", "E4"],
+                    ["G3", "B3", "D4", "F4"],
+                    ["A3", "C4", "E4", "G4"],
+                    ["F3", "A3", "C4", "E4"],
+                    ["G3", "B3", "D4", "F4"]
+                ];
+                let chordIndex = 0;
+                bgmLoop = new Tone.Loop(time => {
+                    bgmSynth.triggerAttackRelease(chords[chordIndex], "1m", time);
+                    chordIndex = (chordIndex + 1) % chords.length;
+                }, "2m").start(0);
+                
+                Tone.Transport.bpm.value = 50;
+                Tone.Transport.start();
+
+                // Efek Suara Langkah Kaki
+                walkSynth = new Tone.NoiseSynth({
+                    noise: { type: "brown" },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.05 }
+                }).toDestination();
+                walkSynth.volume.value = -20;
+
+                isAudioInitialized = true;
+            } catch (e) {
+                console.log("Audio init failed", e);
+            }
+        }
+
         function startCutscene() {
+            initAudio(); // Mulai audio setelah user berinteraksi
             document.getElementById('main-menu').style.display = 'none';
             document.getElementById('cutscene').style.display = 'flex';
             csIndex = 0;
@@ -792,13 +845,66 @@
             else if (my !== 0) player.facing = my > 0 ? 'down' : 'up';
 
             player.isMoving = (Math.abs(mx) > 0.1 || Math.abs(my) > 0.1);
-            if(player.isMoving) player.walkCycle += (dt/1000) * 15;
+            if(player.isMoving) {
+                player.walkCycle += (dt/1000) * 15;
+                
+                // Mainkan efek suara langkah kaki
+                let now = performance.now();
+                let stepInterval = 400 * (5 / player.currentSpeed); // Tempo tergantung kecepatan
+                if (now - lastStepTime > stepInterval) {
+                    if (isAudioInitialized) walkSynth.triggerAttackRelease("16n");
+                    lastStepTime = now;
+                }
+            }
 
-            // Collision basic dengan batas map
             const scene = scenes[gameState.currentScene];
-            let nx = player.x + player.vx; let ny = player.y + player.vy;
-            if (nx >= 0 && nx + player.w <= scene.w) player.x = nx;
-            if (ny >= 0 && ny + player.h <= scene.h) player.y = ny;
+            let nx = player.x + player.vx; 
+            let ny = player.y + player.vy;
+            
+            // Batas Map
+            if (nx < 0) nx = 0;
+            if (nx + player.w > scene.w) nx = scene.w - player.w;
+            if (ny < 0) ny = 0;
+            if (ny + player.h > scene.h) ny = scene.h - player.h;
+
+            // Kotak Solid Pemain (Bagian Bawah/Kaki)
+            let pBoxBoth = { x: nx + 4, y: ny + player.h - 15, w: player.w - 8, h: 15 };
+            let pBoxX = { x: nx + 4, y: player.y + player.h - 15, w: player.w - 8, h: 15 };
+            let pBoxY = { x: player.x + 4, y: ny + player.h - 15, w: player.w - 8, h: 15 };
+
+            function isColliding(r1, r2) {
+                return r1.x < r2.x + r2.w && r1.x + r1.w > r2.x && r1.y < r2.y + r2.h && r1.y + r1.h > r2.y;
+            }
+
+            // Kumpulkan area solid di scene saat ini
+            let allSolids = [];
+            for(let o of scene.objs) {
+                if(o.type !== 'warp') {
+                    // Hanya bagian bawah bangunan yang solid
+                    if (o.type === 'building') allSolids.push({ x: o.x, y: o.y + o.h - 60, w: o.w, h: 60 });
+                    else if (o.type === 'bus') allSolids.push({ x: o.x, y: o.y + o.h - 40, w: o.w, h: 40 });
+                    else allSolids.push({ x: o.x, y: o.y, w: o.w, h: o.h });
+                }
+            }
+            if(scene.decos) {
+                for(let d of scene.decos) {
+                    if(d.type === 'tree') allSolids.push({ x: d.x - 15, y: d.y - 15, w: 30, h: 30 }); // Batang pohon
+                    else if(d.type === 'lamp') allSolids.push({ x: d.x - 8, y: d.y - 10, w: 16, h: 10 }); // Tiang lampu
+                }
+            }
+
+            // Cek tabrakan
+            for(let solid of allSolids) {
+                if (isColliding(pBoxBoth, solid)) {
+                    // Geser menelusuri dinding (Sliding Collision)
+                    if (!isColliding(pBoxX, solid)) ny = player.y; 
+                    else if (!isColliding(pBoxY, solid)) nx = player.x;
+                    else { nx = player.x; ny = player.y; } // Terjebak sepenuhnya
+                }
+            }
+
+            player.x = nx;
+            player.y = ny;
 
             // Warp check
             for(let o of scene.objs) {
