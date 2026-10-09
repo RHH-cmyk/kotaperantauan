@@ -56,12 +56,20 @@
         .btn-cancel { background: #ef4444; border-color: #fca5a5; }
         
         #toast { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); background: rgba(30,58,138,0.95); border: 2px solid #60a5fa; padding: 10px 20px; border-radius: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; z-index: 80; opacity: 0; transition: opacity 0.3s; color: white; pointer-events: none; text-align: center;}
+        
+        #labels-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: hidden; }
+        .bldg-label { position: absolute; background: rgba(15, 23, 42, 0.85); border: 1px solid #64748b; color: #fbbf24; padding: 6px 10px; border-radius: 6px; font-family: 'Press Start 2P', cursive; font-size: 0.55rem; transform: translate(-50%, -100%); transition: opacity 0.2s; text-shadow: 2px 2px 0px #000; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
+        .bldg-label span { color: #cbd5e1; font-size: 0.45rem; }
+        #fade-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 90; opacity: 0; pointer-events: none; transition: opacity 0.6s ease-in-out; }
     </style>
 </head>
 <body>
 
     <div id="game-container">
         <canvas id="webgl-canvas"></canvas>
+
+        <div id="labels-container"></div>
+        <div id="fade-overlay"></div>
 
         <div id="main-menu" class="screen-layer">
             <div class="game-title">KOTA PERANTAUAN 3D</div>
@@ -112,7 +120,8 @@
     <script>
         const gameState = {
             isPlaying: false, money: 1000000, debt: 50000000, energy: 100, mood: 100,
-            day: 1, inGameMinutes: 8 * 60
+            day: 1, inGameMinutes: 8 * 60,
+            kostRented: false, rentDaysLeft: 0, currentScene: 'kost'
         };
 
         let scene, camera, renderer, clock, mixer;
@@ -121,6 +130,10 @@
         let activeAction = null;
         let interactZones = [];
         let activeInteractTarget = null;
+        
+        let envGroup = null; // Penampung objek map agar bisa dihapus saat pindah scene
+        let globalModels = {}; // Menyimpan memori aset yang sudah didownload
+        let uiLabels = []; // Data untuk label bangunan
         
         const joystick = { active: false, x: 0, y: 0, touchId: null };
 
@@ -145,9 +158,8 @@
             const canvas = document.getElementById('webgl-canvas');
             scene = new THREE.Scene();
             
-            // Atmosfer "Nobody: The Turnaround" - Gelap, Polusi, Depresif
-            scene.background = new THREE.Color(0x13171c); 
-            scene.fog = new THREE.FogExp2(0x13171c, 0.045); // Kabut polusi lebih pekat
+            scene.background = new THREE.Color(0x0a0c10); 
+            scene.fog = new THREE.FogExp2(0x0a0c10, 0.04); // Kabut tebal industri
 
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
             
@@ -155,21 +167,24 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            
+            // MAGIC TRICK: Menekan kecerahan warna aset agar kusam dan serius
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 0.55; 
 
-            // Cahaya redup jalanan
-            const ambientLight = new THREE.AmbientLight(0x4a5568, 0.8); 
+            const ambientLight = new THREE.AmbientLight(0x4a5b6e, 1.5); // Cahaya biru muram
             scene.add(ambientLight);
 
-            const sun = new THREE.DirectionalLight(0x8fa3b8, 1.0); 
-            sun.position.set(15, 30, 10);
+            const sun = new THREE.DirectionalLight(0x8296a8, 1.0); 
+            sun.position.set(15, 30, -10);
             sun.castShadow = true;
             sun.shadow.camera.left = -30; sun.shadow.camera.right = 30;
             sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30;
             scene.add(sun);
 
-            // Lantai Dasar (Beton Gelap)
-            const groundGeo = new THREE.PlaneGeometry(200, 500);
-            const groundMat = new THREE.MeshStandardMaterial({ color: 0x0a0c0f, roughness: 0.9 }); 
+            // Lantai Dasar Aspal Kusam
+            const groundGeo = new THREE.PlaneGeometry(200, 200);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x11151a, roughness: 1.0 }); 
             const ground = new THREE.Mesh(groundGeo, groundMat);
             ground.rotation.x = -Math.PI / 2;
             ground.receiveShadow = true;
@@ -177,6 +192,164 @@
 
             clock = new THREE.Clock();
             loadAssets();
+        }
+
+        function loadAssets() {
+            const loader = new THREE.GLTFLoader();
+            
+            const assetsToLoad = [
+                { id: 'player', path: 'assets/models/Isman.glb' },
+                { id: 'path', path: 'assets/models/path-long.glb' },
+                { id: 'path_short', path: 'assets/models/path-short.glb' },
+                { id: 'fence', path: 'assets/models/fence.glb' },
+                { id: 'tree1', path: 'assets/models/tree-large.glb' },
+                { id: 'b_kost', path: 'assets/models/building-type-i.glb', job: 'kost', name: 'Kost Triplek', desc: 'Area Istirahat' },
+                { id: 'b_mart', path: 'assets/models/building-type-j.glb', job: 'minimarket', name: 'Mini Mart', desc: 'Gaji: 75rb/Shift' },
+                { id: 'b_office', path: 'assets/models/building-type-k.glb', job: 'bank', name: 'Bank Pusat', desc: 'Bayar Utang' },
+                { id: 'b_house1', path: 'assets/models/building-type-a.glb', job: 'none' },
+                { id: 'b_house2', path: 'assets/models/building-type-c.glb', job: 'none' }
+            ];
+
+            let loadedCount = 0;
+
+            assetsToLoad.forEach(asset => {
+                document.getElementById('loading-detail').innerText = `Memuat: ${asset.path}`;
+                
+                loader.load(asset.path, (gltf) => {
+                    const model = gltf.scene;
+                    model.traverse(n => { if(n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
+                    
+                    if(asset.id === 'player') {
+                        ismanMesh = model;
+                        ismanMesh.scale.set(0.8, 0.8, 0.8); 
+                        scene.add(ismanMesh);
+                        
+                        if(gltf.animations && gltf.animations.length > 0) {
+                            mixer = new THREE.AnimationMixer(ismanMesh);
+                            let findIdle = null; let findWalk = null;
+                            
+                            gltf.animations.forEach(clip => {
+                                const clipName = clip.name.toLowerCase();
+                                // Mencari animasi idle dan run/walk dengan spesifik
+                                if(clipName.includes('idle')) findIdle = mixer.clipAction(clip);
+                                if(clipName.includes('walk') || clipName.includes('run')) findWalk = mixer.clipAction(clip);
+                            });
+
+                            characterActions['idle'] = findIdle || mixer.clipAction(gltf.animations[0]);
+                            characterActions['walk'] = findWalk || characterActions['idle'];
+                            
+                            activeAction = characterActions['idle'];
+                            activeAction.play();
+                        }
+                    } else {
+                        globalModels[asset.id] = { model: model, data: asset };
+                    }
+
+                    loadedCount++;
+                    document.getElementById('loading-progress').innerText = Math.floor((loadedCount / assetsToLoad.length) * 100) + '%';
+                    
+                    if(loadedCount === assetsToLoad.length) {
+                        // Jalankan Scene Pertama!
+                        changeScene('kost', 0, 10);
+                        setTimeout(startGame, 500);
+                    }
+                }, undefined, (e) => { loadedCount++; if(loadedCount === assetsToLoad.length) setTimeout(startGame, 500); });
+            });
+        }
+
+        function changeScene(sceneName, spawnX, spawnZ) {
+            const fade = document.getElementById('fade-overlay');
+            fade.style.opacity = 1; // Gelapkan layar
+            
+            setTimeout(() => {
+                if(envGroup) { scene.remove(envGroup); }
+                envGroup = new THREE.Group();
+                scene.add(envGroup);
+                
+                interactZones = [];
+                uiLabels = [];
+                document.getElementById('labels-container').innerHTML = '';
+                
+                ismanMesh.position.set(spawnX, 0, spawnZ);
+                gameState.currentScene = sceneName;
+                
+                buildScene(sceneName); // Rakit map baru
+                
+                setTimeout(() => { fade.style.opacity = 0; }, 400); // Terangkan layar
+            }, 600);
+        }
+
+        function buildScene(sceneName) {
+            if(sceneName === 'kost') {
+                // 1. SCENE GANG KOST (Sempit, Linear)
+                for(let z = -20; z <= 20; z+=4) {
+                    if(globalModels['path']) {
+                        let p = globalModels['path'].model.clone(); p.position.set(0, 0, z); envGroup.add(p);
+                    }
+                    // Tembok Rapat di kiri jalan
+                    if(globalModels['b_house1'] && z > -15) {
+                        let b = globalModels['b_house1'].model.clone(); 
+                        b.scale.set(2,2,2); b.position.set(-3.5, 0, z); b.rotation.y = Math.PI/2; envGroup.add(b);
+                    }
+                }
+                // Bangunan Kost di ujung jalan
+                if(globalModels['b_kost']) {
+                    let k = globalModels['b_kost'].model.clone();
+                    k.scale.set(2.5, 2.5, 2.5); k.position.set(3.5, 0, -10); k.rotation.y = -Math.PI/2; envGroup.add(k);
+                    
+                    interactZones.push({ x: 3.5, z: -10, radius: 4, type: 'kost' });
+                    addLabel(3.5, 6, -10, "KOST BAPAK", "Istirahat");
+                }
+                // Titik Pindah Map (Area Bawah)
+                interactZones.push({ x: 0, z: 20, radius: 5, type: 'transit_kota' });
+                addLabel(0, 2, 20, "KE PUSAT KOTA", "Jalan Raya");
+
+            } else if (sceneName === 'kota') {
+                // 2. SCENE PUSAT KOTA (Persimpangan Lebar)
+                for(let z = -20; z <= 20; z+=4) {
+                    if(globalModels['path']) {
+                        let p = globalModels['path'].model.clone(); p.position.set(0, 0, z); p.scale.set(2,1,1); envGroup.add(p); // Jalan Utama
+                    }
+                }
+                
+                if(globalModels['b_mart']) {
+                    let m = globalModels['b_mart'].model.clone();
+                    m.scale.set(3,3,3); m.position.set(-6, 0, -5); m.rotation.y = Math.PI/2; envGroup.add(m);
+                    interactZones.push({ x: -6, z: -5, radius: 5, type: 'minimarket' });
+                    addLabel(-6, 8, -5, "MINIMARKET", "Lowongan Shift");
+                }
+                if(globalModels['b_office']) {
+                    let o = globalModels['b_office'].model.clone();
+                    o.scale.set(3,4,3); o.position.set(6, 0, -10); o.rotation.y = -Math.PI/2; envGroup.add(o);
+                    interactZones.push({ x: 6, z: -10, radius: 5, type: 'bank' });
+                    addLabel(6, 12, -10, "BANK PUSAT", "Loket Pembayaran");
+                }
+                // Titik Pulang ke Kost
+                interactZones.push({ x: 0, z: 20, radius: 5, type: 'transit_kost' });
+                addLabel(0, 2, 20, "KE GANG KOST", "Pulang");
+            }
+        }
+
+        // Fungsi Helper untuk memunculkan Label UI di atas bangunan
+        function addLabel(x, y, z, title, sub) {
+            const container = document.getElementById('labels-container');
+            const el = document.createElement('div');
+            el.className = 'bldg-label';
+            el.innerHTML = `${title}<br><span>${sub}</span>`;
+            container.appendChild(el);
+            uiLabels.push({ element: el, pos: new THREE.Vector3(x, y, z) });
+        }
+
+        function startGame() {
+            document.getElementById('loading-screen').style.display = 'none';
+            document.getElementById('hud').style.display = 'flex';
+            
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+            gameState.isPlaying = true; requestAnimationFrame(gameLoop);
         }
 
         function loadAssets() {
@@ -358,7 +531,7 @@
                 if(e.changedTouches[i].identifier === joystick.touchId) updateJoy(e.changedTouches[i]);
             }
         }, {passive: false});
-
+        // (Biarkan logika joystick tetap sama)
         const endJoy = e => {
             for(let i=0; i<e.changedTouches.length; i++) {
                 if(e.changedTouches[i].identifier === joystick.touchId) {
@@ -391,33 +564,44 @@
             if(!activeInteractTarget) return;
             const t = activeInteractTarget;
             
+            // Logika Transisi Map
+            if(t.type === 'transit_kota') { changeScene('kota', 0, 15); return; }
+            if(t.type === 'transit_kost') { changeScene('kost', 0, 15); return; }
+            
+            // Logika Bangunan
             if(t.type === 'kost') {
-                openModal(t.name, "Sewa Kost Sempit: Rp 300.000 / Bulan\nPulihkan tenaga untuk esok hari.", [
-                    { text: "Tidur (Rp 300k)", action: () => {
-                        if(gameState.money >= 300000) {
-                            gameState.money -= 300000; gameState.energy = 100;
-                            showToast("Beristirahat. Energi Pulih.");
-                        } else { showToast("Uang tidak cukup!"); }
-                    }},
-                    { text: "Batal", cancel: true }
-                ]);
+                if(gameState.rentDaysLeft > 0) {
+                    openModal("Kamar Kost", `Tidur dan pulihkan tenaga?\nSisa sewa: ${gameState.rentDaysLeft} Hari`, [
+                        { text: "Tidur Pulas", action: () => {
+                            gameState.energy = 100; gameState.inGameMinutes += 8*60; // Tidur 8 jam
+                            showToast("Zzz... Energi Penuh!");
+                        }}, { text: "Batal", cancel: true }
+                    ]);
+                } else {
+                    openModal("Pemilik Kost", "Mau perpanjang sewa kamar?\nTarif: Rp 300.000 untuk 30 Hari.", [
+                        { text: "Sewa (Rp300k)", action: () => {
+                            if(gameState.money >= 300000) {
+                                gameState.money -= 300000; gameState.rentDaysLeft = 30; gameState.kostRented = true;
+                                showToast("Kost berhasil disewa 30 hari!");
+                            } else { showToast("Uangmu tidak cukup!"); }
+                        }}, { text: "Nanti Dulu", cancel: true }
+                    ]);
+                }
             } else if(t.type === 'minimarket') {
-                openModal(t.name, "Lowongan Kasir Tersedia.\nGaji: Rp 75.000 (Shift 8 Jam)", [
-                    { text: "Kerja", action: () => {
+                openModal("Minimarket", "Kerja Shift 8 Jam?\nGaji: Rp 75.000", [
+                    { text: "Mulai Kerja", action: () => {
                         gameState.money += 75000; gameState.energy -= 35; gameState.inGameMinutes += (8*60);
-                        showToast("Kerja selesai. Gaji Rp 75.000 diterima.");
-                    }},
-                    { text: "Batal", cancel: true }
+                        showToast("Kerja selesai! +Rp 75.000");
+                    }}, { text: "Batal", cancel: true }
                 ]);
             } else if(t.type === 'bank') {
-                openModal(t.name, "Loket Pembayaran Utang Bapak.\nSisa: " + formatRp(gameState.debt), [
-                    { text: "Bayar Rp 1 Juta", action: () => {
+                openModal("Bank Pusat", `Loket Utang Bapak Imron\nSisa: ${formatRp(gameState.debt)}`, [
+                    { text: "Cicil Rp 1 Juta", action: () => {
                         if(gameState.money >= 1000000) {
                             gameState.money -= 1000000; gameState.debt -= 1000000;
-                            showToast("Pembayaran utang berhasil dicatat.");
-                        } else { showToast("Uangmu tidak cukup!"); }
-                    }},
-                    { text: "Batal", cancel: true }
+                            showToast("Utang berhasil dicicil!");
+                        } else { showToast("Uang kurang!"); }
+                    }}, { text: "Batal", cancel: true }
                 ]);
             }
         }
@@ -446,15 +630,17 @@
             if(ismanMesh) {
                 let isMoving = false;
                 if(joystick.active) {
-                    // Kecepatan diperlambat agar terasa lebih berat/realistis
-                    let speed = 3.5 * dt; 
+                    // Kecepatan diperlambat (lebih berat & realistis)
+                    let speed = 2.0 * dt; 
                     
-                    // Batas tepi jalan sempit (Collision tembok kasar)
                     let newX = ismanMesh.position.x + joystick.x * speed;
-                    if(newX > -3.2 && newX < 3.2) { 
-                        ismanMesh.position.x = newX;
-                    }
-                    ismanMesh.position.z += joystick.y * speed;
+                    let newZ = ismanMesh.position.z + joystick.y * speed;
+                    
+                    // Batasan Area berdasarkan Scene agar tidak tembus bangunan
+                    let xLimit = gameState.currentScene === 'kost' ? 2.0 : 6.0;
+                    if(newX > -xLimit && newX < xLimit) ismanMesh.position.x = newX;
+                    if(newZ > -22 && newZ < 22) ismanMesh.position.z = newZ;
+                    
                     ismanMesh.rotation.y = Math.atan2(joystick.x, joystick.y);
                     isMoving = true;
                 }
@@ -462,24 +648,34 @@
                 if(characterActions['walk'] && characterActions['idle']) {
                     let targetAction = isMoving ? characterActions['walk'] : characterActions['idle'];
                     if (activeAction !== targetAction) {
-                        activeAction.fadeOut(0.2);
-                        targetAction.reset().fadeIn(0.2).play();
+                        activeAction.fadeOut(0.2); targetAction.reset().fadeIn(0.2).play();
                         activeAction = targetAction;
                     }
                 }
 
-                // KAMERA ADAPTIF: Zoom ketat untuk Landscape maupun Portrait
-                const isLandscape = window.innerWidth > window.innerHeight;
-                const camYOffset = isLandscape ? 4.5 : 8;  // Landscape sangat dekat/rendah
-                const camZOffset = isLandscape ? 6 : 9;    // Landscape sangat mepet ke punggung
-
-                // Kamera perlahan mengikuti (Lerp) agar mulus
+                const camYOffset = 16;  // Diangkat tinggi ke atas
+                const camZOffset = 12;  // Sedikit ditarik ke belakang
+                
                 camera.position.x += (ismanMesh.position.x - camera.position.x) * 0.1; 
                 camera.position.y += ((ismanMesh.position.y + camYOffset) - camera.position.y) * 0.1;
                 camera.position.z += ((ismanMesh.position.z + camZOffset) - camera.position.z) * 0.1;
                 
-                // Fokus kamera ke badan Isman
-                camera.lookAt(ismanMesh.position.x, ismanMesh.position.y + 1, ismanMesh.position.z);
+                // Kamera menunduk tajam ke bawah mengarah sedikit ke depan karakter
+                camera.lookAt(ismanMesh.position.x, ismanMesh.position.y, ismanMesh.position.z - 3);
+
+                uiLabels.forEach(label => {
+                    let vec = label.pos.clone();
+                    vec.project(camera);
+                    
+                    // Sembunyikan label jika ada di belakang kamera
+                    if(vec.z > 1) { label.element.style.opacity = 0; return; }
+                    
+                    let x = (vec.x *  .5 + .5) * window.innerWidth;
+                    let y = (vec.y * -.5 + .5) * window.innerHeight;
+                    label.element.style.left = `${x}px`;
+                    label.element.style.top = `${y}px`;
+                    label.element.style.opacity = 1;
+                });
 
                 // Cek Area Interaksi
                 activeInteractTarget = null;
@@ -487,27 +683,34 @@
                     let dist = Math.hypot(ismanMesh.position.x - zone.x, ismanMesh.position.z - zone.z);
                     if(dist < zone.radius) { activeInteractTarget = zone; break; }
                 }
-
+                
                 if(activeInteractTarget) {
                     btnAction.classList.remove('disabled');
-                    btnAction.innerText = activeInteractTarget.type.toUpperCase();
+                    // Teks tombol ganti otomatis
+                    if(activeInteractTarget.type.includes('transit')) btnAction.innerText = "PERGI";
+                    else btnAction.innerText = activeInteractTarget.type.toUpperCase();
                 } else {
-                    btnAction.classList.add('disabled');
-                    btnAction.innerText = "AKSI";
+                    btnAction.classList.add('disabled'); btnAction.innerText = "AKSI";
                 }
             }
 
-            // Update UI
+            // Update UI & Sistem Hari Baru
             document.getElementById('ui-money').innerText = formatRp(Math.floor(gameState.money));
             document.getElementById('ui-debt').innerText = formatRp(Math.floor(gameState.debt));
             document.getElementById('energy-bar').style.width = Math.max(0, gameState.energy) + '%';
-            document.getElementById('mood-bar').style.width = Math.max(0, gameState.mood) + '%';
             
             gameState.inGameMinutes += dt * 0.5;
             let h = Math.floor(gameState.inGameMinutes / 60) % 24;
             let m = Math.floor(gameState.inGameMinutes % 60);
             document.getElementById('ui-clock').innerText = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
-            if(gameState.inGameMinutes >= 24 * 60) { gameState.inGameMinutes = 0; gameState.day++; }
+            
+            // Logika Pergantian Hari (Potong sewa Kost)
+            if(gameState.inGameMinutes >= 24 * 60) { 
+                gameState.inGameMinutes = 0; 
+                gameState.day++; 
+                if(gameState.rentDaysLeft > 0) gameState.rentDaysLeft--;
+                else gameState.kostRented = false;
+            }
             document.getElementById('ui-day').innerText = gameState.day;
 
             renderer.render(scene, camera);
