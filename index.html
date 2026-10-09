@@ -1,1060 +1,490 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kota Perantauan V1.0</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700&display=swap');
-
-        body {
-            font-family: 'Nunito', sans-serif;
-            background-color: #000;
-            color: #e2e8f0;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            touch-action: none;
-            user-select: none;
-        }
-
-        #game-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            background-color: #0f172a;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Layar akan menjaga aspect ratio seperti game konsol, fill screen max */
-        #game-view {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            max-width: 1280px;
-            aspect-ratio: 16/9;
-            background-color: #000;
-            box-shadow: 0 0 20px rgba(0,0,0,1);
-        }
-
-        @media (min-aspect-ratio: 16/9) {
-            #game-view { height: 100vh; width: calc(100vh * 16 / 9); }
-        }
-        @media (max-aspect-ratio: 16/9) {
-            #game-view { width: 100vw; height: calc(100vw * 9 / 16); }
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            image-rendering: pixelated; /* Agar gaya retro lebih tajam */
-        }
-
-        .screen-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
-
-        /* Main Menu */
-        #main-menu { background: linear-gradient(to bottom, #1e293b, #0f172a); z-index: 100; }
-        .game-title { font-family: 'Press Start 2P', cursive; font-size: clamp(1.5rem, 4vw, 3rem); color: #fbbf24; text-shadow: 4px 4px 0 #92400e; margin-bottom: 2rem; text-align: center; line-height: 1.5; }
-        .btn-menu {
-            background: linear-gradient(to bottom, #3b82f6, #2563eb); border: 4px solid #93c5fd;
-            color: white; font-family: 'Press Start 2P', cursive; font-size: clamp(0.7rem, 2vw, 1.2rem);
-            padding: 1rem 2rem; border-radius: 12px; cursor: pointer; box-shadow: 0 8px 0 #1e3a8a, 0 15px 20px rgba(0,0,0,0.5);
-            transition: all 0.1s; margin: 10px;
-        }
-        .btn-menu:active { transform: translateY(8px); box-shadow: 0 0 0 #1e3a8a; }
-
-        /* Cutscene */
-        #cutscene { background-color: black; z-index: 90; display: none; padding: 2rem; text-align: center; position: relative; }
-        .cutscene-text { font-family: 'Nunito', sans-serif; font-size: clamp(1.2rem, 3vw, 2rem); color: white; opacity: 0; transition: opacity 1s ease-in-out; max-width: 800px; line-height: 1.6; }
-        .btn-skip { position: absolute; bottom: 30px; right: 30px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.5); color: white; padding: 0.8rem 1.5rem; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
-        .btn-skip:active { background: rgba(255,255,255,0.3); }
-
-        /* HUD (Heads Up Display) */
-        #hud { z-index: 50; pointer-events: none; justify-content: space-between; display: none; }
-        .top-bar { width: 100%; display: flex; justify-content: space-between; padding: 0.5rem; pointer-events: auto; }
-        
-        .hud-panel { background: rgba(15,23,42,0.4); border: 1px solid rgba(71,85,105,0.6); padding: 0.4rem 0.8rem; border-radius: 12px; backdrop-filter: blur(2px); box-shadow: 0 4px 6px rgba(0,0,0,0.3); transform: scale(0.9); transform-origin: top; }
-        .hud-stats { display: flex; gap: 1rem; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; color: white; align-items: center; }
-        .bar-bg { width: 60px; height: 10px; background: #334155; border-radius: 5px; overflow: hidden; border: 1px solid #000; }
-        .bar-fill { height: 100%; transition: width 0.3s, background-color 0.3s; }
-        #energy-bar { background: #facc15; }
-        #mood-bar { background: #38bdf8; }
-        
-        .hud-time { text-align: center; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; }
-        .hud-debt { text-align: right; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; color: #ef4444; margin-top: 5px;}
-
-        /* Controls */
-        .controls-area { width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 1rem 2vw; pointer-events: none; padding-bottom: 2rem;}
-        
-        .joystick-base {
-            width: 120px; height: 120px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2);
-            border-radius: 50%; display: flex; justify-content: center; align-items: center; pointer-events: auto;
-        }
-        .joystick-stick {
-            width: 50px; height: 50px; background: rgba(255,255,255,0.7); border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none;
-        }
-
-        .btn-action {
-            width: 80px; height: 80px; background: linear-gradient(135deg, #ef4444, #b91c1c); border: 4px solid #fca5a5;
-            border-radius: 50%; color: white; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; font-weight: bold;
-            display: flex; justify-content: center; align-items: center; pointer-events: auto;
-            box-shadow: 0 6px 0 #7f1d1d, 0 10px 15px rgba(0,0,0,0.5); transition: all 0.1s;
-        }
-        .btn-action:active:not(.disabled) { transform: translateY(6px); box-shadow: 0 0 0 #7f1d1d; }
-        .btn-action.disabled { filter: grayscale(1); opacity: 0.5; pointer-events: none; }
-
-        /* Generic Modal */
-        .modal-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; pointer-events: auto;}
-        .modal-box { background: #1e293b; border: 4px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; max-width: 90%; width: 400px; text-align: center; font-family: 'Nunito', sans-serif; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
-        .modal-title { font-family: 'Press Start 2P', cursive; font-size: 0.9rem; color: #fbbf24; margin-bottom: 1rem; line-height: 1.4;}
-        .modal-desc { font-size: 1rem; margin-bottom: 1.5rem; color: #e2e8f0; line-height: 1.5; white-space: pre-wrap;}
-        .modal-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;}
-        .btn-generic { background: #3b82f6; color: white; border: 2px solid #93c5fd; padding: 0.5rem 1rem; border-radius: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; cursor: pointer; }
-        .btn-generic:active { transform: scale(0.95); }
-        .btn-cancel { background: #ef4444; border-color: #fca5a5; }
-
-        .toast { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); background: rgba(30,58,138,0.9); border: 2px solid #60a5fa; color: white; padding: 0.5rem 1rem; border-radius: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; z-index: 80; pointer-events: none; opacity: 0; transition: opacity 0.3s; text-align: center;}
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kota Perantauan 3D V1.0</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700&display=swap');
+​body {
+font-family: 'Nunito', sans-serif;
+background-color: #000;
+color: #e2e8f0;
+margin: 0;
+padding: 0;
+overflow: hidden;
+display: flex;
+align-items: center;
+justify-content: center;
+height: 100vh;
+touch-action: none;
+user-select: none;
+}
+​#game-container {
+position: relative;
+width: 100vw;
+height: 100vh;
+background-color: #0f172a;
+overflow: hidden;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+​#game-view {
+position: relative;
+width: 100%;
+height: 100%;
+max-width: 1280px;
+aspect-ratio: 16/9;
+background-color: #1e293b;
+box-shadow: 0 0 20px rgba(0,0,0,1);
+}
+​@media (min-aspect-ratio: 16/9) {
+#game-view { height: 100vh; width: calc(100vh * 16 / 9); }
+}
+@media (max-aspect-ratio: 16/9) {
+#game-view { width: 100vw; height: calc(100vw * 9 / 16); }
+}
+​#webgl-canvas {
+display: block;
+width: 100%;
+height: 100%;
+}
+​.screen-layer {
+position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+​/* Main Menu */
+#main-menu { background: linear-gradient(to bottom, #1e293b, #0f172a); z-index: 100; }
+.game-title { font-family: 'Press Start 2P', cursive; font-size: clamp(1.5rem, 4vw, 3rem); color: #fbbf24; text-shadow: 4px 4px 0 #92400e; margin-bottom: 2rem; text-align: center; line-height: 1.5; }
+.btn-menu {
+background: linear-gradient(to bottom, #3b82f6, #2563eb); border: 4px solid #93c5fd;
+color: white; font-family: 'Press Start 2P', cursive; font-size: clamp(0.7rem, 2vw, 1.2rem);
+padding: 1rem 2rem; border-radius: 12px; cursor: pointer; box-shadow: 0 8px 0 #1e3a8a, 0 15px 20px rgba(0,0,0,0.5);
+transition: all 0.1s; margin: 10px;
+}
+.btn-menu:active { transform: translateY(8px); box-shadow: 0 0 0 #1e3a8a; }
+​/* Loading Screen */
+#loading-screen { background-color: #0f172a; z-index: 95; display: none; }
+.loading-text { font-family: 'Press Start 2P', cursive; font-size: 1rem; color: #38bdf8; margin-bottom: 1rem; }
+​/* Cutscene */
+#cutscene { background-color: black; z-index: 90; display: none; padding: 2rem; text-align: center; position: relative; }
+.cutscene-text { font-family: 'Nunito', sans-serif; font-size: clamp(1.2rem, 3vw, 2rem); color: white; opacity: 0; transition: opacity 1s ease-in-out; max-width: 800px; line-height: 1.6; }
+.btn-skip { position: absolute; bottom: 30px; right: 30px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.5); color: white; padding: 0.8rem 1.5rem; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; border-radius: 8px; cursor: pointer; }
+​/* HUD */
+#hud { z-index: 50; pointer-events: none; justify-content: space-between; display: none; }
+.top-bar { width: 100%; display: flex; justify-content: space-between; padding: 0.4rem; pointer-events: auto; }
+​.hud-panel { background: rgba(15,23,42,0.6); border: 1px solid rgba(71,85,105,0.4); padding: 0.3rem 0.6rem; border-radius: 10px; backdrop-filter: blur(2px); transform: scale(0.85); transform-origin: top; }
+.hud-stats { display: flex; gap: 0.8rem; font-family: 'Press Start 2P', cursive; font-size: 0.5rem; color: white; align-items: center; }
+.bar-bg { width: 50px; height: 8px; background: #334155; border-radius: 4px; overflow: hidden; border: 1px solid #000; }
+.bar-fill { height: 100%; transition: width 0.3s; }
+#energy-bar { background: #facc15; }
+#mood-bar { background: #38bdf8; }
+​.hud-time { text-align: center; font-family: 'Press Start 2P', cursive; font-size: 0.5rem; }
+.hud-debt { text-align: right; font-family: 'Press Start 2P', cursive; font-size: 0.5rem; color: #ef4444; margin-top: 3px;}
+​/* Controls */
+.controls-area { width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 1rem 2vw; pointer-events: none; padding-bottom: 2rem;}
+.joystick-base { width: 110px; height: 110px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); border-radius: 50%; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
+.joystick-stick { width: 45px; height: 45px; background: rgba(255,255,255,0.7); border-radius: 50%; pointer-events: none; }
+​.btn-action { width: 75px; height: 75px; background: linear-gradient(135deg, #ef4444, #b91c1c); border: 4px solid #fca5a5; border-radius: 50%; color: white; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; display: flex; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 6px 0 #7f1d1d; }
+.btn-action:active:not(.disabled) { transform: translateY(6px); box-shadow: 0 0 0 #7f1d1d; }
+.btn-action.disabled { filter: grayscale(1); opacity: 0.4; pointer-events: none; }
+​/* Modal */
+.modal-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; pointer-events: auto;}
+.modal-box { background: #1e293b; border: 4px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; max-width: 90%; width: 400px; text-align: center; font-family: 'Nunito', sans-serif; box-shadow: 0 20px 25px rgba(0,0,0,0.5); }
+.modal-title { font-family: 'Press Start 2P', cursive; font-size: 0.9rem; color: #fbbf24; margin-bottom: 1rem; }
+.modal-desc { font-size: 1rem; margin-bottom: 1.5rem; color: #e2e8f0; white-space: pre-wrap;}
+.modal-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;}
+.btn-generic { background: #3b82f6; color: white; border: 2px solid #93c5fd; padding: 0.5rem 1rem; border-radius: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; cursor: pointer; }
+.btn-cancel { background: #ef4444; border-color: #fca5a5; }
+​.toast { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); background: rgba(30,58,138,0.9); border: 2px solid #60a5fa; color: white; padding: 0.5rem 1rem; border-radius: 8px; font-family: 'Press Start 2P', cursive; font-size: 0.5rem; z-index: 80; pointer-events: none; opacity: 0; transition: opacity 0.3s; text-align: center;}
+</style>
 </head>
 <body>
-
-    <div id="game-container">
-        <div id="game-view">
-            <!-- Canvas -->
-            <canvas id="gameCanvas" width="1280" height="720"></canvas>
-
-            <!-- Main Menu -->
-            <div id="main-menu" class="screen-layer">
-                <div class="game-title">KOTA<br>PERANTAUAN</div>
-                <div style="font-family: 'Nunito', sans-serif; color: #94a3b8; margin-bottom: 2rem;">Versi 1.0 - Bertahan Hidup & Lunasi Utang</div>
-                <button class="btn-menu" onclick="startCutscene()">Mulai Perantauan</button>
-                <button class="btn-menu" style="background: #475569; border-color: #94a3b8; box-shadow: 0 8px 0 #1e293b;" onclick="toggleFullScreen()">Full Screen</button>
-            </div>
-
-            <!-- Cutscene Layer -->
-            <div id="cutscene" class="screen-layer">
-                <div id="cs-text" class="cutscene-text"></div>
-                <button id="btn-skip-cs" class="btn-skip" onclick="skipCutscene()">SKIP >></button>
-            </div>
-
-            <!-- HUD (Heads Up Display) -->
-            <div id="hud" class="screen-layer">
-                <div class="top-bar">
-                    <div class="hud-panel hud-stats">
-                        <div class="stat-item">💰 <span id="ui-money">Rp 1.000.000</span></div>
-                        <div class="stat-item">⚡ <div class="bar-bg"><div id="energy-bar" class="bar-fill" style="width: 100%;"></div></div></div>
-                        <div class="stat-item">😊 <div class="bar-bg"><div id="mood-bar" class="bar-fill" style="width: 100%;"></div></div></div>
-                    </div>
-                    <div class="hud-panel hud-time">
-                        <div style="color: #fbbf24; margin-bottom: 5px;">HARI <span id="ui-day">1</span> / 365</div>
-                        <div id="ui-clock" style="font-size: 0.8rem; margin-bottom: 5px;">08:00</div>
-                        <div class="hud-debt">UTANG: <span id="ui-debt">Rp 50 Juta</span></div>
-                    </div>
-                </div>
-
-                <div class="controls-area">
-                    <div class="joystick-base" id="joystick-zone">
-                        <div class="joystick-stick" id="joystick-stick"></div>
-                    </div>
-                    <div class="btn-action disabled" id="btn-action">AKSI</div>
-                </div>
-            </div>
-
-            <!-- Toast Notification -->
-            <div id="toast" class="toast">Pesan di sini</div>
-
-            <!-- Generic Modal -->
-            <div id="modal-ui" class="modal-overlay">
-                <div class="modal-box">
-                    <div class="modal-title" id="modal-title">Judul</div>
-                    <div class="modal-desc" id="modal-desc">Deskripsi...</div>
-                    <div class="modal-buttons" id="modal-buttons">
-                        <!-- Buttons injected dynamically -->
-                    </div>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        // Data Game Utama
-        const gameState = {
-            isPlaying: false,
-            money: 1000000, // Modal awal 1 Juta
-            debt: 50000000, // Utang 50 Juta
-            energy: 100,
-            mood: 100,
-            
-            day: 1,
-            maxDays: 365,
-            inGameMinutes: 8 * 60, // Mulai jam 08:00 pagi
-            
-            // Status Gelandangan / Kost
-            kostType: null, // 'triplek', 'standar', 'vip'
-            kostPaidUntil: 0, // Hari ke berapa kost habis
-            
-            // Pekerjaan
-            jobId: null,
-            jobStartDay: 0, // Hari kapan bisa mulai kerja (untuk delay RNG)
-            jobWorkedToday: false,
-
-            currentScene: 'terminal', // Map pertama
-            fadeAlpha: 1, // Untuk transisi
-            isFading: false,
-            targetWarp: null
-        };
-
-        // Database Pekerjaan
-        const JOB_DB = {
-            'cuci_piring': { name: 'Tukang Cuci Piring', salary: 40000, energy: -40, mood: -10, chance: 0.8, reqHours: 6, open: 17, close: 24, desc: 'Kerja di Pasar Malam. Sangat melelahkan.' },
-            'kuli': { name: 'Kuli Panggul', salary: 80000, energy: -70, mood: -5, chance: 0.7, reqHours: 8, open: 6, close: 18, desc: 'Kerja kasar di Terminal. Menguras banyak tenaga.' },
-            'minimarket': { name: 'Pelayan Minimarket', salary: 75000, energy: -30, mood: -15, chance: 0.5, reqHours: 8, open: 0, close: 24, desc: 'Kerja Shift 24 Jam. Stabil tapi membosankan.' },
-            'kurir': { name: 'Kurir Paket', salary: 100000, energy: -40, mood: -20, chance: 0.4, reqHours: 8, open: 8, close: 17, desc: 'Kerja keliling kota siang hari.' },
-            'admin': { name: 'Staff Admin', salary: 200000, energy: -20, mood: -40, chance: 0.15, reqHours: 9, open: 8, close: 17, desc: 'Kerja kantoran di area Bisnis. Gaji besar, rawan stres.' }
-        };
-
-        // Database Kost
-        const KOST_DB = {
-            'triplek': { name: 'Kost Triplek', price: 300000, energyRec: 60, moodRec: -10, desc: 'Area Kumuh. Panas dan berisik.' },
-            'standar': { name: 'Kost Standar', price: 600000, energyRec: 90, moodRec: 0, desc: 'Area Perumahan biasa. Nyaman.' },
-            'vip': { name: 'Kost VIP', price: 1200000, energyRec: 100, moodRec: 20, desc: 'Dekat kawasan bisnis. Fasilitas lengkap.' }
-        };
-
-        // Player Entity
-        const player = {
-            x: 600, y: 500, w: 32, h: 48, speed: 5, currentSpeed: 5,
-            vx: 0, vy: 0, facing: 'down', walkCycle: 0, isMoving: false
-        };
-        const camera = { x: 0, y: 0, w: canvas.width, h: canvas.height };
-
-        const cutsceneTexts = [
-            "Desa Lebak Sunting, sebuah desa kecil yang tenang...",
-            "Namun ketenangan itu hancur saat Ibu meninggal kecelakaan...",
-            "...saat beliau sedang berjualan tape ketan keliling.",
-            "Kini, Bapak terbaring tak berdaya karena stroke.",
-            "Bapak Imron: 'Isman, maafkan bapak nak...'",
-            "Bapak Imron: 'Bapak punya utang rentenir 50 Juta untuk biaya rumah sakit ibu...'",
-            "Bapak Imron: 'Mereka memberi waktu 1 tahun, atau rumah kita disita.'",
-            "Isman: 'Aku harus merantau ke kota. Semoga di sana aku bisa mencari uang...'"
-        ];
-        let csIndex = 0;
-
-        function toggleFullScreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    console.log(`Error full screen: ${err.message}`);
-                });
-            } else {
-                if (document.exitFullscreen) document.exitFullscreen();
-            }
-        }
-
-        let isAudioInitialized = false;
-        let bgmSynth, bgmLoop;
-        let walkSynth;
-        let lastStepTime = 0;
-        let csTimeout; // Timeout referensi cutscene
-
-        async function initAudio() {
-            if (isAudioInitialized) return;
-            try {
-                await Tone.start();
-                
-                // Musik Latar (Tenang & Santai)
-                bgmSynth = new Tone.PolySynth(Tone.FMSynth, {
-                    harmonicity: 0.5,
-                    modulationIndex: 1.2,
-                    oscillator: { type: "sine" },
-                    envelope: { attack: 2, decay: 2, sustain: 0.8, release: 4 },
-                    modulation: { type: "triangle" },
-                    modulationEnvelope: { attack: 0.5, decay: 0.5, sustain: 1, release: 0.5 }
-                }).toDestination();
-                bgmSynth.volume.value = -18;
-
-                const chords = [
-                    ["C4", "E4", "G4", "B4"],
-                    ["F3", "A3", "C4", "E4"],
-                    ["G3", "B3", "D4", "F4"],
-                    ["A3", "C4", "E4", "G4"],
-                    ["F3", "A3", "C4", "E4"],
-                    ["G3", "B3", "D4", "F4"]
-                ];
-                let chordIndex = 0;
-                bgmLoop = new Tone.Loop(time => {
-                    bgmSynth.triggerAttackRelease(chords[chordIndex], "1m", time);
-                    chordIndex = (chordIndex + 1) % chords.length;
-                }, "2m").start(0);
-                
-                Tone.Transport.bpm.value = 50;
-                Tone.Transport.start();
-
-                // Efek Suara Langkah Kaki
-                walkSynth = new Tone.NoiseSynth({
-                    noise: { type: "brown" },
-                    envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.05 }
-                }).toDestination();
-                walkSynth.volume.value = -20;
-
-                isAudioInitialized = true;
-            } catch (e) {
-                console.log("Audio init failed", e);
-            }
-        }
-
-        function startCutscene() {
-            initAudio(); // Mulai audio setelah user berinteraksi
-            document.getElementById('main-menu').style.display = 'none';
-            document.getElementById('cutscene').style.display = 'flex';
-            csIndex = 0;
-            showNextCutscene();
-        }
-
-        function showNextCutscene() {
-            const csText = document.getElementById('cs-text');
-            if (csIndex < cutsceneTexts.length) {
-                csText.style.opacity = 0;
-                csTimeout = setTimeout(() => {
-                    csText.innerText = cutsceneTexts[csIndex];
-                    csText.style.opacity = 1;
-                    csIndex++;
-                    csTimeout = setTimeout(showNextCutscene, 4000); // 4 detik per teks
-                }, 1000);
-            } else {
-                csText.style.opacity = 0;
-                csTimeout = setTimeout(startGame, 1000);
-            }
-        }
-
-        function skipCutscene() {
-            clearTimeout(csTimeout);
-            startGame();
-        }
-
-        const keys = {};
-        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-
-        const joystick = { active: false, inputX: 0, inputY: 0, touchId: null };
-        const joyZone = document.getElementById('joystick-zone');
-        const joyStick = document.getElementById('joystick-stick');
-        const btnAction = document.getElementById('btn-action');
-        const maxJoy = 40;
-
-        // Joystick Handlers
-        joyZone.addEventListener('touchstart', e => {
-            e.preventDefault();
-            if(!joystick.active) {
-                const touch = e.changedTouches[0];
-                joystick.active = true; joystick.touchId = touch.identifier;
-                updateJoyTouch(touch);
-            }
-        }, {passive: false});
-
-        joyZone.addEventListener('touchmove', e => {
-            e.preventDefault();
-            for(let i=0; i<e.changedTouches.length; i++) {
-                if(e.changedTouches[i].identifier === joystick.touchId) {
-                    updateJoyTouch(e.changedTouches[i]);
-                }
-            }
-        }, {passive: false});
-
-        const endJoy = (e) => {
-            for(let i=0; i<e.changedTouches.length; i++) {
-                if(e.changedTouches[i].identifier === joystick.touchId) {
-                    joystick.active = false; joystick.touchId = null;
-                    joystick.inputX = 0; joystick.inputY = 0;
-                    joyStick.style.transform = `translate(0px, 0px)`;
-                }
-            }
-        };
-        joyZone.addEventListener('touchend', endJoy); joyZone.addEventListener('touchcancel', endJoy);
-
-        function updateJoyTouch(touch) {
-            const rect = joyZone.getBoundingClientRect();
-            const cx = rect.left + rect.width/2; const cy = rect.top + rect.height/2;
-            let dx = touch.clientX - cx; let dy = touch.clientY - cy;
-            const dist = Math.hypot(dx, dy);
-            if(dist > maxJoy) { dx = (dx/dist)*maxJoy; dy = (dy/dist)*maxJoy; }
-            joyStick.style.transform = `translate(${dx}px, ${dy}px)`;
-            joystick.inputX = dx/maxJoy; joystick.inputY = dy/maxJoy;
-        }
-
-        // Action Button Handler (Independent Touch)
-        let actionTouchId = null;
-        btnAction.addEventListener('touchstart', e => {
-            e.preventDefault();
-            if(btnAction.classList.contains('disabled')) return;
-            const touch = e.changedTouches[0];
-            actionTouchId = touch.identifier;
-            btnAction.style.transform = 'translateY(6px)';
-            interact(); // Call interaction logic
-        }, {passive: false});
-
-        btnAction.addEventListener('touchend', e => {
-            for(let i=0; i<e.changedTouches.length; i++) {
-                if(e.changedTouches[i].identifier === actionTouchId) {
-                    btnAction.style.transform = 'none';
-                    actionTouchId = null;
-                }
-            }
-        });
-
-        // Helper fungsi gambar
-        function drawGrass(ctx, w, h) { ctx.fillStyle = '#166534'; ctx.fillRect(0,0,w,h); }
-        function drawAsphalt(ctx, w, h) { ctx.fillStyle = '#334155'; ctx.fillRect(0,0,w,h); }
-        function drawPaving(ctx, w, h) { ctx.fillStyle = '#64748b'; ctx.fillRect(0,0,w,h); }
-        function drawTree(ctx, x, y) {
-            ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x, y+10, 30, 10, 0, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#78350f'; ctx.fillRect(x-5, y-20, 10, 30);
-            ctx.fillStyle = '#065f46'; ctx.beginPath(); ctx.arc(x, y-30, 35, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#10b981'; ctx.beginPath(); ctx.arc(x-5, y-40, 25, 0, Math.PI*2); ctx.fill();
-        }
-
-        const scenes = {
-            'terminal': {
-                w: 1600, h: 1000,
-                bg: (ctx, w, h) => { 
-                    drawAsphalt(ctx, w, h); 
-                    // Zebra cross
-                    ctx.fillStyle='white'; for(let i=0; i<w; i+=80) ctx.fillRect(i, h/2 - 5, 40, 10);
-                },
-                objs: [
-                    { type: 'warp', x: 0, y: 300, w: 50, h: 400, target: 'gang_kost', tx: 1400, ty: 500, label: '⬅ Ke Area Kost' },
-                    { type: 'warp', x: 1550, y: 300, w: 50, h: 400, target: 'pasar', tx: 100, ty: 500, label: 'Ke Pasar Malam ➡' },
-                    { type: 'building', id: 'job_kuli', name: 'Mandor Terminal', x: 700, y: 150, w: 200, h: 150, color: '#b45309', interact: 'job', jobId: 'kuli' },
-                    { type: 'npc', name: 'Bang Jali (Calo)', x: 400, y: 750, w: 32, h: 48, skin: '#d97706', shirt: '#475569', pants: '#0f172a', facing: 'right', dIndex: 0, dialogues: ['Mau ke mana dek? Tiket bis habis!', 'Hati-hati di kota, banyak copet.', 'Tidur di terminal bisa masuk angin lu.'] },
-                    { type: 'bus', x: 300, y: 600, w: 250, h: 120, color: '#0ea5e9' },
-                    { type: 'bus', x: 1000, y: 600, w: 250, h: 120, color: '#ef4444' }
-                ],
-                decos: [ {type:'tree', x:100, y:100}, {type:'tree', x:1400, y:100} ]
-            },
-            'gang_kost': {
-                w: 1500, h: 900,
-                bg: (ctx, w, h) => { 
-                    drawPaving(ctx, w, h);
-                    ctx.fillStyle = '#475569'; ctx.fillRect(0, 400, w, 100); // Jalan setapak
-                },
-                objs: [
-                    { type: 'warp', x: 1450, y: 350, w: 50, h: 200, target: 'terminal', tx: 100, ty: 500, label: 'Ke Terminal ➡' },
-                    { type: 'building', id: 'kost_triplek', name: 'Kost Triplek', x: 150, y: 150, w: 200, h: 200, color: '#a16207', interact: 'kost', kostId: 'triplek' },
-                    { type: 'building', id: 'kost_standar', name: 'Kost Standar', x: 550, y: 150, w: 250, h: 250, color: '#64748b', interact: 'kost', kostId: 'standar' },
-                    { type: 'building', id: 'kost_vip', name: 'Kost VIP', x: 1050, y: 100, w: 300, h: 300, color: '#f59e0b', interact: 'kost', kostId: 'vip' },
-                    { type: 'npc', name: 'Bu Tejo (Ibu Kost)', x: 450, y: 350, w: 32, h: 48, skin: '#fcd34d', shirt: '#ec4899', pants: '#831843', facing: 'down', dIndex: 0, dialogues: ['Eh pemuda baru ya? Jangan lupa bayar kost tepat waktu!', 'Air PDAM lagi mati nih, mandi di kali aja sana.', 'Kerja yang bener, jangan kelayapan terus.'] }
-                ],
-                decos: [ {type:'lamp', x:450, y:400}, {type:'lamp', x:950, y:400} ]
-            },
-            'pasar': {
-                w: 1600, h: 1000,
-                bg: (ctx, w, h) => { drawPaving(ctx, w, h); },
-                objs: [
-                    { type: 'warp', x: 0, y: 400, w: 50, h: 200, target: 'terminal', tx: 1450, ty: 500, label: '⬅ Ke Terminal' },
-                    { type: 'warp', x: 1550, y: 400, w: 50, h: 200, target: 'bisnis', tx: 100, ty: 500, label: 'Ke Area Bisnis ➡' },
-                    { type: 'building', id: 'job_cuci', name: 'Pecel Lele (Malam)', x: 300, y: 200, w: 250, h: 200, color: '#dc2626', interact: 'job_eat', jobId: 'cuci_piring' },
-                    { type: 'building', id: 'job_mini', name: 'Minimarket 24 Jam', x: 900, y: 150, w: 300, h: 250, color: '#38bdf8', interact: 'job_buy', jobId: 'minimarket' },
-                    { type: 'npc', name: 'Udin Pengamen', x: 750, y: 400, w: 32, h: 48, skin: '#92400e', shirt: '#fef08a', pants: '#1c1917', facing: 'left', dIndex: 0, dialogues: ['Bagi recehnya dong bang, buat makan...', 'Sambal pecel lele bang Somad pedas gila.', 'Hari gini cari kerja susah bang, mending ngamen.'] }
-                ],
-                decos: [ {type:'lamp', x:700, y:450}, {type:'tree', x: 200, y:150}, {type:'tree', x: 1300, y:150} ]
-            },
-            'bisnis': {
-                w: 1800, h: 1200,
-                bg: (ctx, w, h) => { drawAsphalt(ctx, w, h); },
-                objs: [
-                    { type: 'warp', x: 0, y: 400, w: 50, h: 300, target: 'pasar', tx: 1450, ty: 500, label: '⬅ Ke Pasar' },
-                    { type: 'warp', x: 800, y: 0, w: 300, h: 50, target: 'taman', tx: 800, ty: 1000, label: '⬆ Ke Taman Kota' },
-                    { type: 'building', id: 'bank', name: 'BANK (Bayar Utang)', x: 300, y: 100, w: 400, h: 300, color: '#0ea5e9', interact: 'bank' },
-                    { type: 'building', id: 'job_admin', name: 'Gedung Perkantoran', x: 1100, y: 100, w: 400, h: 400, color: '#94a3b8', interact: 'job', jobId: 'admin' },
-                    { type: 'npc', name: 'Pak Satpam', x: 500, y: 450, w: 32, h: 48, skin: '#fcd34d', shirt: '#ffffff', pants: '#1e3a8a', facing: 'down', dIndex: 0, dialogues: ['Selamat siang, mau ke Bank? Harap antre.', 'Pastikan uang anda aman, banyak preman.', 'Gedung kantoran ini hanya untuk staf berdasi.'] }
-                ],
-                decos: [ {type:'lamp', x:400, y:500}, {type:'lamp', x:1100, y:600} ]
-            },
-            'taman': {
-                w: 1600, h: 1200,
-                bg: (ctx, w, h) => { drawGrass(ctx, w, h); ctx.fillStyle='#cbd5e1'; ctx.beginPath(); ctx.arc(800, 600, 200, 0, Math.PI*2); ctx.fill(); },
-                objs: [
-                    { type: 'warp', x: 700, y: 1150, w: 200, h: 50, target: 'bisnis', tx: 950, ty: 150, label: '⬇ Ke Area Bisnis' },
-                    { type: 'building', id: 'bench', name: 'Bangku Taman (Nongkrong)', x: 700, y: 550, w: 100, h: 50, color: '#78350f', interact: 'relax' },
-                    { type: 'building', id: 'job_kurir', name: 'Pangkalan Kurir', x: 200, y: 200, w: 200, h: 200, color: '#f59e0b', interact: 'job', jobId: 'kurir' },
-                    { type: 'npc', name: 'Anak Senja', x: 950, y: 650, w: 32, h: 48, skin: '#fde047', shirt: '#a21caf', pants: '#3f3f46', facing: 'left', dIndex: 0, dialogues: ['Kopi, senja, dan utang... eh maksudku puisi.', 'Taman ini damai banget ya, anginnya sejuk.', 'Capek kerja kan? Udah nongkrong aja dulu di sini.'] }
-                ],
-                decos: [ {type:'tree', x:300, y:800}, {type:'tree', x:1300, y:800}, {type:'tree', x:1200, y:300} ]
-            }
-        };
-
-        function drawCharacter(ctx, x, y, w, h, facing, isMoving, walkCycle, skin, shirt, pants) {
-            let px = x + w/2; let py = y + h;
-            let bounce = isMoving ? Math.abs(Math.sin(walkCycle)) * 5 : 0;
-            let swing = isMoving ? Math.sin(walkCycle) : 0;
-            
-            // Bayangan
-            ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(px, py, 16, 6, 0, 0, Math.PI*2); ctx.fill();
-
-            let headY = py - 40 - bounce; let bodyY = py - 25 - bounce;
-
-            const drawLimb = (offsetX, yOffset, color, isForward, isLeg) => {
-                let s = isForward ? swing * 10 : -swing * 10;
-                ctx.fillStyle = color; ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
-                ctx.beginPath();
-                if(isLeg) ctx.roundRect(px + offsetX - 5, bodyY + 12, 10, 15, 3);
-                else ctx.roundRect(px + offsetX - 4, bodyY, 8, 14, 3);
-                ctx.fill(); ctx.stroke();
-                
-                // Tangan/Kaki bawah
-                ctx.fillStyle = isLeg ? '#334155' : skin;
-                ctx.beginPath();
-                ctx.arc(px + offsetX, bodyY + (isLeg ? 27 : 14) + s, 4, 0, Math.PI*2);
-                ctx.fill(); ctx.stroke();
-            };
-
-            const drawBody = () => {
-                ctx.fillStyle = shirt; ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
-                // Gradien dada
-                let g = ctx.createLinearGradient(px, bodyY, px, bodyY+16);
-                g.addColorStop(0, shirt); g.addColorStop(1, 'rgba(0,0,0,0.3)');
-                ctx.beginPath(); ctx.roundRect(px - 10, bodyY, 20, 16, 4); ctx.fill();
-                ctx.fillStyle = g; ctx.fill(); ctx.stroke();
-            };
-
-            const drawHead = (dir) => {
-                ctx.fillStyle = skin; ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
-                
-                // Gradien wajah
-                let grad = ctx.createRadialGradient(px-5, headY-22, 2, px, headY-16, 20);
-                grad.addColorStop(0, '#ffffff'); grad.addColorStop(1, skin);
-
-                ctx.beginPath(); ctx.roundRect(px - 16, headY - 16, 32, 32, 10); ctx.fillStyle = grad; ctx.fill(); ctx.stroke();
-                
-                // Mata
-                ctx.fillStyle = 'black';
-                if(dir === 'down') { ctx.fillRect(px-8, headY-2, 4, 6); ctx.fillRect(px+4, headY-2, 4, 6); }
-                else if(dir === 'right') { ctx.fillRect(px+6, headY-2, 4, 6); }
-                else if(dir === 'left') { ctx.fillRect(px-10, headY-2, 4, 6); }
-                
-                // Rambut
-                ctx.fillStyle = '#0f172a';
-                ctx.beginPath();
-                if(dir==='down') { ctx.arc(px, headY-6, 17, Math.PI, 0); ctx.lineTo(px+17, headY+2); ctx.lineTo(px, headY-12); ctx.lineTo(px-17, headY+2); }
-                else if(dir==='up') { ctx.arc(px, headY, 17, 0, Math.PI*2); }
-                else { ctx.arc(px, headY-4, 17, Math.PI, 0); } 
-                ctx.fill(); ctx.stroke();
-            };
-
-            if (facing === 'up') { drawLimb(-12,0,shirt,true,false); drawLimb(12,0,shirt,false,false); drawLimb(-6,12,pants,false,true); drawLimb(6,12,pants,true,true); drawBody(); drawHead('up'); }
-            else if (facing === 'down') { drawLimb(-6,12,pants,false,true); drawLimb(6,12,pants,true,true); drawBody(); drawHead('down'); drawLimb(-12,0,shirt,true,false); drawLimb(12,0,shirt,false,false); }
-            else if (facing === 'right') { drawLimb(-5,0,shirt,false,false); drawLimb(-4,12,pants,false,true); drawLimb(4,12,pants,true,true); drawBody(); drawHead('right'); drawLimb(5,0,shirt,true,false); }
-            else if (facing === 'left') { drawLimb(5,0,shirt,false,false); drawLimb(4,12,pants,false,true); drawLimb(-4,12,pants,true,true); drawBody(); drawHead('left'); drawLimb(-5,0,shirt,true,false); }
-        }
-
-        function drawPlayer(ctx) {
-            drawCharacter(ctx, player.x, player.y, player.w, player.h, player.facing, player.isMoving, player.walkCycle, '#fcd34d', '#ea580c', '#1e293b');
-        }
-
-        let interactTarget = null;
-
-        function drawWorld() {
-            const scene = scenes[gameState.currentScene];
-            scene.bg(ctx, scene.w, scene.h);
-
-            let drawQueue = [];
-            for(let b of scene.objs) {
-                if(b.type === 'warp') {
-                    ctx.fillStyle = 'rgba(255,255,0,0.2)'; ctx.fillRect(b.x, b.y, b.w, b.h);
-                    ctx.fillStyle = 'yellow'; ctx.font = '12px "Press Start 2P"'; ctx.fillText(b.label, b.x + 10, b.y + b.h/2);
-                    continue; // Skip Y-sort
-                }
-                drawQueue.push({ type: b.type, obj: b, y: b.y + b.h });
-            }
-            if(scene.decos) {
-                for(let d of scene.decos) drawQueue.push({ type: 'deco', obj: d, y: d.y });
-            }
-            drawQueue.push({ type: 'player', y: player.y + player.h });
-
-            drawQueue.sort((a,b) => a.y - b.y);
-
-            interactTarget = null;
-            let pCX = player.x + player.w/2; let pCY = player.y + player.h;
-
-            for(let item of drawQueue) {
-                if(item.type === 'player') drawPlayer(ctx);
-                else if(item.type === 'npc') {
-                    let n = item.obj;
-                    // Gambar NPC dengan fungsi karakter generic
-                    drawCharacter(ctx, n.x, n.y, n.w, n.h, n.facing, false, 0, n.skin, n.shirt, n.pants);
-                    
-                    // Cek Interaksi NPC
-                    if (Math.abs(pCX - (n.x + n.w/2)) < 55 && Math.abs(pCY - (n.y + n.h)) < 55) {
-                        interactTarget = { ...n, interact: 'npc' };
-                    }
-                }
-                else if(item.type === 'deco' && item.obj.type === 'tree') drawTree(ctx, item.obj.x, item.obj.y);
-                else if(item.type === 'deco' && item.obj.type === 'lamp') {
-                    ctx.fillStyle='#475569'; ctx.fillRect(item.obj.x-3, item.obj.y-80, 6, 80);
-                    ctx.fillStyle='#fef08a'; ctx.fillRect(item.obj.x-10, item.obj.y-85, 20, 10);
-                }
-                else if(item.type === 'bus') {
-                    ctx.fillStyle = item.obj.color; ctx.fillRect(item.obj.x, item.obj.y, item.obj.w, item.obj.h);
-                    ctx.fillStyle = '#1e293b'; ctx.fillRect(item.obj.x+10, item.obj.y+20, 40, 30); ctx.fillRect(item.obj.x+60, item.obj.y+20, 40, 30);
-                }
-                else if(item.type === 'building') {
-                    let b = item.obj;
-                    // Shadow
-                    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(b.x+10, b.y+10, b.w, b.h);
-                    // Base
-                    ctx.fillStyle = b.color; ctx.fillRect(b.x, b.y, b.w, b.h);
-                    // Door
-                    ctx.fillStyle = '#0f172a'; ctx.fillRect(b.x + b.w/2 - 25, b.y + b.h - 60, 50, 60);
-                    // Label
-                    ctx.fillStyle = 'white'; ctx.font = '14px "Press Start 2P"'; ctx.textAlign='center';
-                    ctx.fillText(b.name, b.x + b.w/2, b.y - 10); ctx.textAlign='left';
-
-                    // Cek interaksi
-                    if (Math.abs(pCX - (b.x + b.w/2)) < 60 && Math.abs(pCY - (b.y + b.h)) < 60) {
-                        interactTarget = b;
-                    }
-                }
-            }
-
-            // Lighting (Malam)
-            let h = Math.floor(gameState.inGameMinutes / 60);
-            if (h >= 18 || h < 6) {
-                let dark = h >= 18 ? Math.min(0.8, (h-18)*0.15 + 0.3) : 0.8;
-                ctx.globalCompositeOperation = 'source-over';
-                ctx.fillStyle = `rgba(10,15,30,${dark})`;
-                ctx.fillRect(0,0, scene.w, scene.h);
-
-                ctx.globalCompositeOperation = 'lighter';
-                const drawGlow = (cx, cy, r) => {
-                    let grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-                    grad.addColorStop(0, `rgba(253, 230, 138, ${dark})`); grad.addColorStop(1, 'rgba(253,230,138,0)');
-                    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
-                };
-                if(scene.decos) {
-                    for(let d of scene.decos) if(d.type === 'lamp') drawGlow(d.x, d.y-80, 150);
-                }
-                for(let b of scene.objs) {
-                    if(b.type === 'building' && b.color === '#38bdf8') drawGlow(b.x + b.w/2, b.y + b.h/2, 200); // minimart terang
-                    if(b.type === 'building' && b.color === '#dc2626' && (h>=17||h<2)) drawGlow(b.x + b.w/2, b.y + b.h/2, 150); // pecel lele
-                }
-                ctx.globalCompositeOperation = 'source-over';
-            }
-        }
-
-        function showToast(msg) {
-            const t = document.getElementById('toast');
-            t.innerText = msg; t.style.opacity = 1;
-            setTimeout(() => t.style.opacity = 0, 3000);
-        }
-
-        function formatRp(amount) {
-            return "Rp " + amount.toLocaleString('id-ID');
-        }
-
-        function openModal(title, desc, buttons) {
-            document.getElementById('modal-title').innerText = title;
-            document.getElementById('modal-desc').innerText = desc;
-            const btnContainer = document.getElementById('modal-buttons');
-            btnContainer.innerHTML = '';
-            buttons.forEach(b => {
-                const btn = document.createElement('button');
-                btn.className = `btn-generic ${b.cancel ? 'btn-cancel' : ''}`;
-                btn.innerText = b.text;
-                btn.onclick = () => { closeModal(); if(b.action) b.action(); };
-                btnContainer.appendChild(btn);
-            });
-            document.getElementById('modal-ui').style.display = 'flex';
-            keys.w = keys.a = keys.s = keys.d = false; // Reset move
-        }
-        function closeModal() { document.getElementById('modal-ui').style.display = 'none'; }
-
-        function addTime(mins) {
-            gameState.inGameMinutes += mins;
-            if (gameState.inGameMinutes >= 24*60) {
-                gameState.inGameMinutes -= 24*60;
-                gameState.day++;
-                gameState.jobWorkedToday = false;
-                
-                // Potong uang makan harian
-                gameState.money -= 30000;
-                showToast("Hari Baru. Biaya hidup dasar terpotong Rp 30.000");
-
-                if (gameState.day > gameState.maxDays) {
-                    gameOver("Waktu 1 Tahun (365 Hari) telah habis. Kamu gagal melunasi utang Bapak.");
-                }
-
-                // Cek bayar kost
-                if (gameState.kostType && gameState.day >= gameState.kostPaidUntil) {
-                    let price = KOST_DB[gameState.kostType].price;
-                    if (gameState.money >= price) {
-                        gameState.money -= price;
-                        gameState.kostPaidUntil += 30;
-                        showToast(`Sewa Kost ${KOST_DB[gameState.kostType].name} diperpanjang (-${formatRp(price)})`);
-                    } else {
-                        gameState.kostType = null; // Diusir
-                        openModal("Diusir!", "Uangmu tidak cukup untuk perpanjang kost. Kamu kembali jadi gelandangan.", [{text:"OK"}]);
-                    }
-                }
-            }
-        }
-
-        function interact() {
-            if(!interactTarget || gameState.isFading) return;
-            const t = interactTarget;
-            
-            if (t.interact === 'npc') {
-                // Cari referensi objek NPC asli di array untuk update Index Dialog
-                const sceneObjs = scenes[gameState.currentScene].objs;
-                const realNpc = sceneObjs.find(o => o.type === 'npc' && o.name === t.name);
-                
-                let text = realNpc.dialogues[realNpc.dIndex];
-                
-                openModal(realNpc.name, `"${text}"`, [
-                    { text: "Lanjut", action: () => {
-                        // Putar ke dialog selanjutnya untuk interaksi berikutnya
-                        realNpc.dIndex = (realNpc.dIndex + 1) % realNpc.dialogues.length;
-                    }}
-                ]);
-                return; // Hentikan interaksi yang lain
-            }
-
-            if (t.interact === 'kost') {
-                const k = KOST_DB[t.kostId];
-                if (gameState.kostType === t.kostId) {
-                    // Masuk kost & tidur
-                    openModal("Kost Kamu", "Mau tidur sampai besok pagi? (Memulihkan energi & mood)", [
-                        { text: "Tidur", action: () => {
-                            gameState.energy = Math.min(100, gameState.energy + k.energyRec);
-                            gameState.mood = Math.min(100, gameState.mood + k.moodRec);
-                            // Skip time ke jam 6 pagi besoknya
-                            let currentMins = gameState.inGameMinutes;
-                            let targetMins = 24*60 + 6*60; // Besok jam 6
-                            addTime(targetMins - currentMins);
-                            showToast("Zzz... Tidur pulas di kost.");
-                        }},
-                        { text: "Batal", cancel: true }
-                    ]);
-                } else {
-                    // Sewa kost baru
-                    openModal(k.name, `${k.desc}\nHarga Sewa: ${formatRp(k.price)} / 30 Hari.\n\nMau sewa tempat ini?`, [
-                        { text: "Sewa", action: () => {
-                            if (gameState.money >= k.price) {
-                                gameState.money -= k.price;
-                                gameState.kostType = t.kostId;
-                                gameState.kostPaidUntil = gameState.day + 30;
-                                openModal("Berhasil", "Kamu resmi menyewa kost ini. Jangan lupa bayar bulan depan ya!", [{text:"OK"}]);
-                            } else {
-                                showToast("Uang tidak cukup!");
-                            }
-                        }},
-                        { text: "Batal", cancel: true }
-                    ]);
-                }
-            }
-            
-            else if (t.interact === 'job' || t.interact === 'job_eat' || t.interact === 'job_buy') {
-                const job = JOB_DB[t.jobId];
-                
-                // Cek jam buka
-                let h = Math.floor(gameState.inGameMinutes / 60);
-                let isOpen = false;
-                if(job.open < job.close) isOpen = (h >= job.open && h < job.close);
-                else isOpen = (h >= job.open || h < job.close);
-
-                if (gameState.jobId === t.jobId) {
-                    // Sudah punya kerjaan ini
-                    if (!isOpen) { showToast(`Tempat kerja tutup. Buka jam ${job.open}:00`); return; }
-                    if (gameState.jobWorkedToday) { showToast("Kamu sudah bekerja hari ini. Istirahatlah."); return; }
-                    if (gameState.energy < Math.abs(job.energy)) { showToast("Energi terlalu rendah untuk bekerja."); return; }
-                    
-                    openModal(job.name, `Kerja selama ${job.reqHours} Jam?\nGaji: ${formatRp(job.salary)}\nEnergi: ${job.energy}, Mood: ${job.mood}`, [
-                        { text: "Mulai Kerja", action: () => {
-                            gameState.money += job.salary;
-                            gameState.energy += job.energy;
-                            gameState.mood += job.mood;
-                            gameState.jobWorkedToday = true;
-                            addTime(job.reqHours * 60);
-                            showToast(`Selesai bekerja. Mendapat ${formatRp(job.salary)}`);
-                        }},
-                        { text: "Batal", cancel: true }
-                    ]);
-                } else {
-                    // Melamar kerja
-                    openModal(t.name, `Info Lowongan:\n${job.name}\nGaji: ${formatRp(job.salary)}/hari.\n\nSyarat: Bekerja Keras. Mau coba melamar?`, [
-                        { text: "Lamar Kerja", action: () => {
-                            if (Math.random() <= job.chance) {
-                                // Diterima
-                                let delay = Math.floor(Math.random() * 3); // 0-2 hari
-                                gameState.jobId = t.jobId;
-                                gameState.jobStartDay = gameState.day + delay;
-                                let msg = delay === 0 ? "Selamat! Kamu langsung diterima dan bisa kerja sekarang." : `Kamu diterima! Mulai masuk ${delay} hari lagi ya.`;
-                                openModal("DITERIMA!", msg, [{text:"Alhamdulillah"}]);
-                            } else {
-                                // Ditolak
-                                openModal("DITOLAK", "Maaf mas, posisi sudah penuh. Coba lagi besok atau cari tempat lain.", [{text:"Yah...", cancel: true}]);
-                            }
-                        }},
-                        { text: "Batal", cancel: true }
-                    ]);
-                }
-            }
-
-            else if (t.interact === 'bank') {
-                openModal("BANK PUSAT", `Utang Bapak: ${formatRp(gameState.debt)}\nUangmu: ${formatRp(gameState.money)}\n\nIngin transfer cicilan? (Minimal Rp 1.000.000)`, [
-                    { text: "Bayar Rp 1 Juta", action: () => payDebt(1000000) },
-                    { text: "Bayar Rp 5 Juta", action: () => payDebt(5000000) },
-                    { text: "Tutup", cancel: true }
-                ]);
-            }
-
-            else if (t.interact === 'relax') {
-                openModal("Taman Kota", "Duduk bersantai di taman? (+20 Mood, memakan waktu 2 jam)", [
-                    { text: "Bersantai", action: () => {
-                        gameState.mood = Math.min(100, gameState.mood + 20);
-                        addTime(2*60);
-                        showToast("Pikiran kembali tenang melihat pepohonan...");
-                    }},
-                    { text: "Batal", cancel: true }
-                ]);
-            }
-        }
-
-        function payDebt(amount) {
-            if (gameState.money >= amount) {
-                gameState.money -= amount;
-                gameState.debt -= amount;
-                if (gameState.debt <= 0) {
-                    gameState.debt = 0;
-                    openModal("TAMAT!", "Luar biasa! Kamu berhasil melunasi seluruh utang Bapak. Kini Bapak bisa fokus pemulihan dan kamu bisa membangun hidup yang lebih baik di kota. TUNGGU UPDATE V1.1 UNTUK KONTEN SELANJUTNYA!", [{text:"Main Terus", cancel:true}]);
-                } else {
-                    openModal("Transfer Sukses", `Sisa utang: ${formatRp(gameState.debt)}. Terus semangat!`, [{text:"OK"}]);
-                }
-            } else {
-                showToast("Uangmu tidak cukup!");
-            }
-        }
-
-        function gameOver(reason) {
-            gameState.isPlaying = false;
-            openModal("GAME OVER", reason, [{text:"Ulangi dari Awal", action: () => location.reload() }]);
-        }
-
-        let lastTime = 0;
-        function update(dt) {
-            if (!gameState.isPlaying || document.getElementById('modal-ui').style.display === 'flex') return;
-
-            // Waktu Berjalan (1 detik nyata = 5 menit game)
-            addTime((dt / 1000) * 5);
-
-            // Metabolisme & Kelelahan
-            let drainFactor = (dt / 1000) * (5/60); // Base per in-game hour logic adjusted
-            gameState.energy -= drainFactor * 1.5; 
-            gameState.mood -= drainFactor * 0.8;
-            if (player.isMoving) gameState.energy -= drainFactor * 3; // Lari capek
-
-            if (gameState.energy <= 0) gameOver("Kamu jatuh pingsan karena kelelahan parah. Gagal bertahan hidup.");
-            if (gameState.mood <= 0) gameOver("Kamu depresi berat dan memutuskan pulang kampung dengan tangan kosong.");
-            if (gameState.money < 0) gameOver("Kamu terlilit hutang baru di kota dan ditangkap preman.");
-
-            // Kecepatan player berdasarkan energi
-            if (gameState.energy < 20) player.currentSpeed = player.speed * 0.4;
-            else if (gameState.energy < 40) player.currentSpeed = player.speed * 0.7;
-            else player.currentSpeed = player.speed;
-
-            // Pergerakan
-            let mx = 0, my = 0;
-            if(keys.w || keys.arrowup) my -= 1;
-            if(keys.s || keys.arrowdown) my += 1;
-            if(keys.a || keys.arrowleft) mx -= 1;
-            if(keys.d || keys.arrowright) mx += 1;
-
-            if (joystick.active) { mx = joystick.inputX; my = joystick.inputY; }
-            else if (mx !== 0 && my !== 0) { let len = Math.hypot(mx,my); mx /= len; my /= len; }
-
-            player.vx = mx * player.currentSpeed;
-            player.vy = my * player.currentSpeed;
-
-            if (Math.abs(mx) > Math.abs(my)) player.facing = mx > 0 ? 'right' : 'left';
-            else if (my !== 0) player.facing = my > 0 ? 'down' : 'up';
-
-            player.isMoving = (Math.abs(mx) > 0.1 || Math.abs(my) > 0.1);
-            if(player.isMoving) {
-                player.walkCycle += (dt/1000) * 15;
-                
-                // Mainkan efek suara langkah kaki
-                let now = performance.now();
-                let stepInterval = 400 * (5 / player.currentSpeed); // Tempo tergantung kecepatan
-                if (now - lastStepTime > stepInterval) {
-                    if (isAudioInitialized) walkSynth.triggerAttackRelease("16n");
-                    lastStepTime = now;
-                }
-            }
-
-            const scene = scenes[gameState.currentScene];
-            let nx = player.x + player.vx; 
-            let ny = player.y + player.vy;
-            
-            // Batas Map
-            if (nx < 0) nx = 0;
-            if (nx + player.w > scene.w) nx = scene.w - player.w;
-            if (ny < 0) ny = 0;
-            if (ny + player.h > scene.h) ny = scene.h - player.h;
-
-            // Kotak Solid Pemain (Bagian Bawah/Kaki)
-            let pBoxBoth = { x: nx + 4, y: ny + player.h - 15, w: player.w - 8, h: 15 };
-            let pBoxX = { x: nx + 4, y: player.y + player.h - 15, w: player.w - 8, h: 15 };
-            let pBoxY = { x: player.x + 4, y: ny + player.h - 15, w: player.w - 8, h: 15 };
-
-            function isColliding(r1, r2) {
-                return r1.x < r2.x + r2.w && r1.x + r1.w > r2.x && r1.y < r2.y + r2.h && r1.y + r1.h > r2.y;
-            }
-
-            // Kumpulkan area solid di scene saat ini
-            let allSolids = [];
-            for(let o of scene.objs) {
-                if(o.type !== 'warp') {
-                    // Hanya bagian bawah bangunan yang solid
-                    if (o.type === 'building') allSolids.push({ x: o.x, y: o.y + o.h - 60, w: o.w, h: 60 });
-                    else if (o.type === 'bus') allSolids.push({ x: o.x, y: o.y + o.h - 40, w: o.w, h: 40 });
-                    else if (o.type === 'npc') allSolids.push({ x: o.x, y: o.y + o.h - 15, w: o.w, h: 15 });
-                    else allSolids.push({ x: o.x, y: o.y, w: o.w, h: o.h });
-                }
-            }
-            if(scene.decos) {
-                for(let d of scene.decos) {
-                    if(d.type === 'tree') allSolids.push({ x: d.x - 15, y: d.y - 15, w: 30, h: 30 }); // Batang pohon
-                    else if(d.type === 'lamp') allSolids.push({ x: d.x - 8, y: d.y - 10, w: 16, h: 10 }); // Tiang lampu
-                }
-            }
-
-            // Cek tabrakan
-            for(let solid of allSolids) {
-                if (isColliding(pBoxBoth, solid)) {
-                    // Geser menelusuri dinding (Sliding Collision)
-                    if (!isColliding(pBoxX, solid)) ny = player.y; 
-                    else if (!isColliding(pBoxY, solid)) nx = player.x;
-                    else { nx = player.x; ny = player.y; } // Terjebak sepenuhnya
-                }
-            }
-
-            player.x = nx;
-            player.y = ny;
-
-            // Warp check
-            for(let o of scene.objs) {
-                if (o.type === 'warp') {
-                    if (player.x + player.w > o.x && player.x < o.x + o.w && player.y + player.h > o.y && player.y < o.y + o.h) {
-                        if (!gameState.isFading) {
-                            gameState.isFading = true;
-                            gameState.targetWarp = o;
-                        }
-                    }
-                }
-            }
-
-            // Camera follow
-            camera.x += ((player.x + player.w/2 - canvas.width/2) - camera.x) * 0.1;
-            camera.y += ((player.y + player.h/2 - canvas.height/2) - camera.y) * 0.1;
-            if(camera.x < 0) camera.x = 0; if(camera.y < 0) camera.y = 0;
-            if(camera.x > scene.w - canvas.width) camera.x = scene.w - canvas.width;
-            if(camera.y > scene.h - canvas.height) camera.y = scene.h - canvas.height;
-
-            // Fade Logic
-            if (gameState.isFading) {
-                gameState.fadeAlpha += 0.05;
-                if (gameState.fadeAlpha >= 1) {
-                    // Pindah
-                    gameState.currentScene = gameState.targetWarp.target;
-                    player.x = gameState.targetWarp.tx; player.y = gameState.targetWarp.ty;
-                    gameState.targetWarp = null;
-                    gameState.isFading = false;
-                    // Memicu fade in di frame berikutnya
-                }
-            } else if (gameState.fadeAlpha > 0) {
-                gameState.fadeAlpha -= 0.05;
-                if(gameState.fadeAlpha < 0) gameState.fadeAlpha = 0;
-            }
-
-            // Update UI HUD
-            document.getElementById('ui-money').innerText = formatRp(Math.floor(gameState.money));
-            document.getElementById('ui-debt').innerText = formatRp(Math.floor(gameState.debt));
-            document.getElementById('energy-bar').style.width = gameState.energy + '%';
-            document.getElementById('energy-bar').style.background = gameState.energy < 25 ? '#ef4444' : '#facc15';
-            document.getElementById('mood-bar').style.width = gameState.mood + '%';
-            
-            document.getElementById('ui-day').innerText = gameState.day;
-            let hh = Math.floor(gameState.inGameMinutes / 60) % 24;
-            let mm = Math.floor(gameState.inGameMinutes % 60);
-            document.getElementById('ui-clock').innerText = (hh<10?'0'+hh:hh) + ':' + (mm<10?'0'+mm:mm);
-
-            // Tombol Aksi aktif jika ada target
-            if (interactTarget && !gameState.isFading) btnAction.classList.remove('disabled');
-            else btnAction.classList.add('disabled');
-        }
-
-        function loop(timestamp) {
-            if (!lastTime) lastTime = timestamp;
-            const dt = timestamp - lastTime;
-            lastTime = timestamp;
-
-            update(dt);
-
-            if (gameState.isPlaying) {
-                ctx.fillStyle = '#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
-                ctx.save();
-                ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
-                drawWorld();
-                ctx.restore();
-
-                // Interaksi UI On-Canvas
-                if (interactTarget && !gameState.isFading) {
-                    ctx.fillStyle = 'rgba(0,0,0,0.8)';
-                    ctx.fillRect(canvas.width/2 - 150, canvas.height - 150, 300, 40);
-                    ctx.fillStyle = '#facc15'; ctx.font = '12px "Press Start 2P"'; ctx.textAlign = 'center';
-                    ctx.fillText(interactTarget.name, canvas.width/2, canvas.height - 125);
-                    ctx.textAlign = 'left';
-                }
-
-                // Fade Black
-                if (gameState.fadeAlpha > 0) {
-                    ctx.fillStyle = `rgba(0,0,0,${gameState.fadeAlpha})`;
-                    ctx.fillRect(0,0,canvas.width,canvas.height);
-                }
-            }
-
-            requestAnimationFrame(loop);
-        }
-
-        function startGame() {
-            document.getElementById('cutscene').style.display = 'none';
-            document.getElementById('hud').style.display = 'flex';
-            gameState.isPlaying = true;
-            
-            // Resize canvas scale handling
-            const resize = () => {
-                const w = window.innerWidth; const h = window.innerHeight;
-                // Tetap render di 1280x720 internal, tapi di CSS disesuaikan object-fit
-            };
-            window.addEventListener('resize', resize); resize();
-            
-            lastTime = performance.now();
-            requestAnimationFrame(loop);
-        }
-    </script>
+​<div id="game-container">
+<div id="game-view">
+<canvas id="webgl-canvas"></canvas>
+​<!-- Main Menu -->
+<div id="main-menu" class="screen-layer">
+<div class="game-title">KOTA
+PERANTAUAN 3D</div>
+<div style="font-family: 'Nunito', sans-serif; color: #94a3b8; margin-bottom: 2rem;">Warcraft Isometric Style - V1.0</div>
+<button class="btn-menu" onclick="startLoading()">Mulai Perantauan</button>
+<button class="btn-menu" style="background: #475569; border-color: #94a3b8;" onclick="toggleFullScreen()">Full Screen</button>
+</div>
+​<!-- Loading Screen -->
+<div id="loading-screen" class="screen-layer">
+<div class="loading-text">MEMUAT DUNIA 3D...</div>
+<div id="loading-progress" style="font-family: 'Press Start 2P'; font-size: 0.7rem; color: #fbbf24;">0%</div>
+</div>
+​<!-- Cutscene -->
+<div id="cutscene" class="screen-layer">
+<div id="cs-text" class="cutscene-text"></div>
+<button class="btn-skip" onclick="skipCutscene()">SKIP >></button>
+</div>
+​<!-- HUD -->
+<div id="hud" class="screen-layer">
+<div class="top-bar">
+<div class="hud-panel hud-stats">
+<div class="stat-item">💰 <span id="ui-money">Rp 1.000.000</span></div>
+<div class="stat-item">⚡ <div class="bar-bg"><div id="energy-bar" class="bar-fill" style="width: 100%;"></div></div></div>
+<div class="stat-item">😊 <div class="bar-bg"><div id="mood-bar" class="bar-fill" style="width: 100%;"></div></div></div>
+</div>
+<div class="hud-panel hud-time">
+<div style="color: #fbbf24; margin-bottom: 3px;">HARI <span id="ui-day">1</span> / 365</div>
+<div id="ui-clock" style="font-size: 0.7rem; margin-bottom: 3px;">08:00</div>
+<div class="hud-debt">UTANG: <span id="ui-debt">Rp 50 Juta</span></div>
+</div>
+</div>
+​<div class="controls-area">
+<div class="joystick-base" id="joystick-zone">
+<div class="joystick-stick" id="joystick-stick"></div>
+</div>
+<div class="btn-action disabled" id="btn-action">AKSI</div>
+</div>
+</div>
+​<div id="toast" class="toast">Notifikasi</div>
+​<!-- Generic Modal -->
+<div id="modal-ui" class="modal-overlay">
+<div class="modal-box">
+<div class="modal-title" id="modal-title">Judul</div>
+<div class="modal-desc" id="modal-desc">Deskripsi...</div>
+<div class="modal-buttons" id="modal-buttons"></div>
+</div>
+</div>
+​</div>
+</div>
+​<script>
+// Konfigurasi Game State & Ekonomi tetap utuh
+const gameState = {
+isPlaying: false,
+money: 1000000,
+debt: 50000000,
+energy: 100,
+mood: 100,
+day: 1,
+maxDays: 365,
+inGameMinutes: 8 * 60,
+kostType: null,
+kostPaidUntil: 0,
+jobId: null,
+jobWorkedToday: false
+};
+​const JOB_DB = {
+'cuci_piring': { name: 'Tukang Cuci Piring', salary: 40000, energy: -40, mood: -10, chance: 0.8, reqHours: 6, open: 17, close: 24, desc: 'Kerja di Pasar Malam.' },
+'kuli': { name: 'Kuli Panggul', salary: 80000, energy: -70, mood: -5, chance: 0.7, reqHours: 8, open: 6, close: 18, desc: 'Kerja kasar di Terminal.' },
+'minimarket': { name: 'Pelayan Minimarket', salary: 75000, energy: -30, mood: -15, chance: 0.5, reqHours: 8, open: 0, close: 24, desc: 'Shift 24 Jam.' },
+'kurir': { name: 'Kurir Paket', salary: 100000, energy: -40, mood: -20, chance: 0.4, reqHours: 8, open: 8, close: 17, desc: 'Kurir keliling kota.' },
+'admin': { name: 'Staff Admin', salary: 200000, energy: -20, mood: -40, chance: 0.15, reqHours: 9, open: 8, close: 17, desc: 'Kerja kantoran.' }
+};
+​const KOST_DB = {
+'triplek': { name: 'Kost Triplek', price: 300000, energyRec: 60, moodRec: -10, desc: 'Area Kumuh.' },
+'standar': { name: 'Kost Standar', price: 600000, energyRec: 90, moodRec: 0, desc: 'Area Perumahan.' },
+'vip': { name: 'Kost VIP', price: 1200000, energyRec: 100, moodRec: 20, desc: 'Kawasan Bisnis.' }
+};
+​// Three.js Setup
+let scene, camera, renderer;
+let ismanMesh = null;
+let mixer = null;
+let clock = new THREE.Clock();
+let buildings = [];
+let interactZones = [];
+let activeInteractTarget = null;
+​const keys = {};
+window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+​function toggleFullScreen() {
+if (!document.documentElement.fullscreenElement) {
+document.documentElement.requestFullscreen().catch(err => console.log(err));
+} else {
+if (document.exitFullscreen) document.exitFullscreen();
+}
+}
+​function formatRp(amount) { return "Rp " + amount.toLocaleString('id-ID'); }
+function showToast(msg) {
+const t = document.getElementById('toast');
+t.innerText = msg; t.style.opacity = 1;
+setTimeout(() => t.style.opacity = 0, 3000);
+}
+​function startLoading() {
+document.getElementById('main-menu').style.display = 'none';
+document.getElementById('loading-screen').style.display = 'flex';
+initThreeEngine();
+}
+​function initThreeEngine() {
+const canvas = document.getElementById('webgl-canvas');
+scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0f172a);
+scene.fog = new THREE.FogExp2(0x0f172a, 0.015);
+​camera = new THREE.PerspectiveCamera(45, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+​renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+renderer.shadowMap.enabled = true;
+​// Lighting (Warcraft style sunlight)
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
+​const sun = new THREE.DirectionalLight(0xffedd5, 1.2);
+sun.position.set(30, 50, 30);
+sun.castShadow = true;
+scene.add(sun);
+​// Ground
+const groundGeo = new THREE.PlaneGeometry(300, 300);
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x166534 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+​// Load Assets
+loadGameAssets();
+}
+​const loader = new THREE.GLTFLoader();
+let loadedCount = 0;
+const totalAssetsToLoad = 5; // Isman + beberapa bangunan sample
+​function updateLoadingProgress() {
+loadedCount++;
+let pct = Math.floor((loadedCount / totalAssetsToLoad) * 100);
+document.getElementById('loading-progress').innerText = pct + '%';
+if (loadedCount >= totalAssetsToLoad) {
+setTimeout(finishLoading, 500);
+}
+}
+​function loadGameAssets() {
+// 1. Muat Isman (Casual Character)
+loader.load('./assets/models/Casual Character.glb', (gltf) => {
+ismanMesh = gltf.scene;
+ismanMesh.scale.set(1.2, 1.2, 1.2);
+ismanMesh.position.set(0, 0, 0);
+ismanMesh.traverse(n => { if(n.isMesh) n.castShadow = true; });
+scene.add(ismanMesh);
+​if (gltf.animations.length > 0) {
+mixer = new THREE.AnimationMixer(ismanMesh);
+// Ambil animasi pertama (biasanya idle/walk)
+const action = mixer.clipAction(gltf.animations[0]);
+action.play();
+}
+updateLoadingProgress();
+}, undefined, (err) => { console.log('Gagal muat isman, pakai kotak pengganti', err); createFallbackIsman(); updateLoadingProgress(); });
+​// 2. Muat Variasi Bangunan dari Kenney (Secara Random)
+const buildingFiles = ['building-type-i.glb', 'building-type-j.glb', 'building-type-k.glb', 'building-type-l.glb', 'building-type-m.glb'];
+​buildingFiles.forEach((file, index) => {
+loader.load(./assets/models/${file}, (gltf) => {
+const b = gltf.scene;
+let x = (index % 3) * 35 - 35;
+let z = Math.floor(index / 3) * 35 - 35;
+b.position.set(x, 0, z);
+b.scale.set(1.5, 1.5, 1.5);
+b.traverse(n => { if(n.isMesh) n.receiveShadow = true; });
+scene.add(b);
+​// Daftarkan sebagai area interaksi / bangunan
+interactZones.push({
+x: x, z: z, radius: 15,
+name: index === 0 ? "Kost Triplek" : index === 1 ? "Minimarket" : "Gedung Kantor",
+type: index === 0 ? "kost" : "job",
+id: index === 0 ? "triplek" : "minimarket"
+});
+​updateLoadingProgress();
+}, undefined, () => { updateLoadingProgress(); });
+});
+}
+​function createFallbackIsman() {
+const geo = new THREE.BoxGeometry(2, 4, 2);
+const mat = new THREE.MeshStandardMaterial({ color: 0xfcd34d });
+ismanMesh = new THREE.Mesh(geo, mat);
+ismanMesh.position.set(0, 2, 0);
+scene.add(ismanMesh);
+}
+​function finishLoading() {
+document.getElementById('loading-screen').style.display = 'none';
+startCutscene();
+}
+​const cutsceneTexts = [
+"Tiba di kota besar dengan sisa uang tabungan tipis...",
+"Bapak menaruh harapan penuh agar utang 50 Juta bisa lunas.",
+"Isman: 'Aku harus mulai mencari tempat tinggal dan pekerjaan di sini.'"
+];
+let csIndex = 0;
+let csTimeout;
+​function startCutscene() {
+document.getElementById('cutscene').style.display = 'flex';
+showNextCutscene();
+}
+​function showNextCutscene() {
+const csText = document.getElementById('cs-text');
+if (csIndex < cutsceneTexts.length) {
+csText.style.opacity = 0;
+csTimeout = setTimeout(() => {
+csText.innerText = cutsceneTexts[csIndex];
+csText.style.opacity = 1;
+csIndex++;
+csTimeout = setTimeout(showNextCutscene, 4000);
+}, 1000);
+} else {
+csText.style.opacity = 0;
+csTimeout = setTimeout(startGame, 1000);
+}
+}
+​function skipCutscene() {
+clearTimeout(csTimeout);
+startGame();
+}
+​function startGame() {
+document.getElementById('cutscene').style.display = 'none';
+document.getElementById('hud').style.display = 'flex';
+gameState.isPlaying = true;
+initAudioSystem();
+}
+​let isAudioInit = false;
+let bgmSynth;
+function initAudioSystem() {
+if(isAudioInit) return;
+Tone.start();
+bgmSynth = new Tone.Synth().toDestination();
+bgmSynth.volume.value = -25;
+const loop = new Tone.Loop(time => {
+bgmSynth.triggerAttackRelease("C3", "2n", time);
+}, "4n").start(0);
+Tone.Transport.bpm.value = 60;
+Tone.Transport.start();
+isAudioInit = true;
+}
+​// Joystick Logic
+const joystick = { active: false, x: 0, y: 0, touchId: null };
+const joyZone = document.getElementById('joystick-zone');
+const joyStick = document.getElementById('joystick-stick');
+const maxJoy = 35;
+​joyZone.addEventListener('touchstart', e => {
+e.preventDefault();
+if(!joystick.active) {
+const t = e.changedTouches[0];
+joystick.active = true; joystick.touchId = t.identifier;
+updateJoy(t);
+}
+}, {passive: false});
+​joyZone.addEventListener('touchmove', e => {
+e.preventDefault();
+for(let i=0; i<e.changedTouches.length; i++) {
+if(e.changedTouches[i].identifier === joystick.touchId) updateJoy(e.changedTouches[i]);
+}
+}, {passive: false});
+​const endJoy = e => {
+for(let i=0; i<e.changedTouches.length; i++) {
+if(e.changedTouches[i].identifier === joystick.touchId) {
+joystick.active = false; joystick.touchId = null;
+joystick.x = 0; joystick.y = 0;
+joyStick.style.transform = translate(0px, 0px);
+}
+}
+};
+joyZone.addEventListener('touchend', endJoy); joyZone.addEventListener('touchcancel', endJoy);
+​function updateJoy(t) {
+const rect = joyZone.getBoundingClientRect();
+let dx = t.clientX - (rect.left + rect.width/2);
+let dy = t.clientY - (rect.top + rect.height/2);
+let dist = Math.hypot(dx, dy);
+if(dist > maxJoy) { dx = (dx/dist)*maxJoy; dy = (dy/dist)*maxJoy; }
+joyStick.style.transform = translate(${dx}px, ${dy}px);
+joystick.x = dx / maxJoy; joystick.y = dy / maxJoy;
+}
+​// Aksi Button
+const btnAction = document.getElementById('btn-action');
+btnAction.addEventListener('touchstart', e => {
+e.preventDefault();
+if(!btnAction.classList.contains('disabled')) triggerInteraction();
+}, {passive: false});
+​function triggerInteraction() {
+if(!activeInteractTarget) return;
+const t = activeInteractTarget;
+if(t.type === 'kost') {
+const k = KOST_DB[t.id];
+openModal(k.name, ${k.desc}\nHarga: ${formatRp(k.price)}/30 Hari, [
+{ text: "Sewa/Tidur", action: () => {
+gameState.money -= k.price;
+gameState.kostType = t.id;
+gameState.energy = 100;
+showToast("Beristirahat di kost...");
+}},
+{ text: "Batal", cancel: true }
+]);
+} else if(t.type === 'job') {
+const job = JOB_DB['minimarket'];
+openModal(t.name, Peluang Kerja: ${job.name}\nGaji: ${formatRp(job.salary)}, [
+{ text: "Kerja Sekarang", action: () => {
+gameState.money += job.salary;
+gameState.energy -= 30;
+showToast(Mendapat ${formatRp(job.salary)});
+}},
+{ text: "Batal", cancel: true }
+]);
+}
+}
+​function openModal(title, desc, buttons) {
+document.getElementById('modal-title').innerText = title;
+document.getElementById('modal-desc').innerText = desc;
+const c = document.getElementById('modal-buttons'); c.innerHTML = '';
+buttons.forEach(b => {
+const btn = document.createElement('button');
+btn.className = btn-generic ${b.cancel ? 'btn-cancel' : ''};
+btn.innerText = b.text;
+btn.onclick = () => { closeModal(); if(b.action) b.action(); };
+c.appendChild(btn);
+});
+document.getElementById('modal-ui').style.display = 'flex';
+}
+function closeModal() { document.getElementById('modal-ui').style.display = 'none'; }
+​// Main Loop 3D
+let prevTime = 0;
+function animate(timestamp) {
+requestAnimationFrame(animate);
+if(!gameState.isPlaying) return;
+​const dt = (timestamp - prevTime) / 1000;
+prevTime = timestamp;
+​if(mixer) mixer.update(dt);
+​// Gerakan Isman
+if(ismanMesh) {
+let mx = 0, mz = 0;
+if(keys.w || keys.arrowup) mz -= 1;
+if(keys.s || keys.arrowdown) mz += 1;
+if(keys.a || keys.arrowleft) mx -= 1;
+if(keys.d || keys.arrowright) mx += 1;
+​if(joystick.active) { mx = joystick.x; mz = joystick.y; }
+​if(mx !== 0 || mz !== 0) {
+let speed = 12 * dt;
+ismanMesh.position.x += mx * speed;
+ismanMesh.position.z += mz * speed;
+ismanMesh.rotation.y = Math.atan2(mx, mz);
+}
+​// Kamera Warcraft Isometric Follow
+camera.position.x = ismanMesh.position.x + 15;
+camera.position.y = ismanMesh.position.y + 25;
+camera.position.z = ismanMesh.position.z + 20;
+camera.lookAt(ismanMesh.position.x, ismanMesh.position.y + 2, ismanMesh.position.z);
+​// Cek Jarak Interaksi dengan Bangunan/Zonasi
+activeInteractTarget = null;
+for(let zone of interactZones) {
+let dist = Math.hypot(ismanMesh.position.x - zone.x, ismanMesh.position.z - zone.z);
+if(dist < zone.radius) {
+activeInteractTarget = zone;
+break;
+}
+}
+​if(activeInteractTarget) {
+btnAction.classList.remove('disabled');
+} else {
+btnAction.classList.add('disabled');
+}
+}
+​// Update UI HUD
+document.getElementById('ui-money').innerText = formatRp(Math.floor(gameState.money));
+document.getElementById('ui-debt').innerText = formatRp(Math.floor(gameState.debt));
+document.getElementById('energy-bar').style.width = gameState.energy + '%';
+document.getElementById('mood-bar').style.width = gameState.mood + '%';
+​renderer.render(scene, camera);
+}
+​requestAnimationFrame(animate);
+</script>
 </body>
 </html>
