@@ -19,7 +19,17 @@ const scene=new THREE.Scene();scene.background=new THREE.Color('#9a9b87');scene.
 const camera=new THREE.OrthographicCamera(-20,20,20,-20,.1,220);camera.position.set(22,28,24);camera.lookAt(0,0,0);
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'low-power'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;document.body.insertBefore(renderer.domElement,status);
 scene.add(new THREE.HemisphereLight(0xfff2d8,0x454b43,2.0));const sun=new THREE.DirectionalLight(0xffd7a0,2.1);sun.position.set(-15,30,10);scene.add(sun);
-const loader=new GLTFLoader(),base='./assets/models/',charBase='./assets/models/character/';
+const manager=new THREE.LoadingManager();
+// Beberapa model merujuk tekstur dengan path relatif berbeda. Arahkan file gambar ke folder tekstur yang benar.
+manager.setURLModifier(url=>{
+  const clean=decodeURIComponent(url.split('?')[0]);
+  if (/\.(png|jpe?g|webp|ktx2?)$/i.test(clean)) {
+    const name=clean.split('/').pop();
+    return './assets/models/textures/'+name;
+  }
+  return url;
+});
+const loader=new GLTFLoader(manager),base='./assets/models/',charBase='./assets/models/character/';
 const M={ground:mat('#777d65'),asphalt:mat('#414341'),patch:mat('#555650'),side:mat('#8e897d'),curb:mat('#aaa28e'),concrete:mat('#716e63'),wall1:mat('#b6a38a'),wall2:mat('#9a8c77'),wall3:mat('#77796b'),rust:mat('#784c35'),roof:mat('#55564f'),roof2:mat('#65564a'),dark:mat('#252a27'),window:mat('#53666a'),wood:mat('#80583d'),trash:mat('#454943'),paint:mat('#a65d3c'),yellow:mat('#b79a50'),green:mat('#596747')};
 function mat(c,rough=1){return new THREE.MeshStandardMaterial({color:c,roughness:rough})}
 const obstacles=[];let character=null,mixer=null,walkAction=null,idleAction=null,activeAction=null;const clock=new THREE.Clock();
@@ -88,8 +98,9 @@ addAsset('truck-grey.glb',-24,0,-1.8,2.4,Math.PI/2,1,[5,2.4]);addAsset('truck-gr
 for(let x=-40;x<=40;x+=8){if(Math.random()>.4)addAsset('detail-bricks-type-a.glb',x,0,Math.random()>.5?9.4:-9.4,.55,Math.random()*2);if(Math.random()>.5)addAsset('pallet-small.glb',x+2,0,Math.random()>.5?11.4:-11.4,.55,Math.random()*2);}
 // Selected modular wall/fence pieces give the foreground extra visual density
 for(const side of [-1,1])for(let x=-35;x<36;x+=9){addAsset('wall-fence.glb',x,0,side*12.8,1.6,side===1?Math.PI:0,1,[2.3,.35]);}
-// Isman model lives in the new character subfolder
-loader.load(charBase+'Isman.glb',g=>{character=g.scene;const b=new THREE.Box3().setFromObject(character),sz=b.getSize(new THREE.Vector3());if(sz.y>0)character.scale.setScalar(1.72/sz.y);character.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(character);character.position.set(0,-bb.min.y,0);scene.add(character);mixer=new THREE.AnimationMixer(character);const clips=g.animations||[];const wc=clips.find(c=>/walk|walking|run/i.test(c.name));const ic=clips.find(c=>/idle|stand|breath/i.test(c.name));if(wc)walkAction=mixer.clipAction(wc);if(ic)idleAction=mixer.clipAction(ic);if(idleAction){idleAction.play();activeAction=idleAction}else if(walkAction){walkAction.play();activeAction=walkAction}status.textContent='Kota Perantauan • Isman siap • Animasi: '+clips.length;},undefined,()=>{status.textContent='Kota siap • Isman.glb tidak ditemukan';});
+// Isman: coba lokasi folder baru, lalu lokasi lama sebagai cadangan.
+function loadIsman(pathIndex=0){const paths=['./assets/models/character/Isman.glb','./assets/models/Isman.glb'];if(pathIndex>=paths.length){status.textContent='Kota tampil • Isman gagal dimuat (periksa lokasi file)';return;}loader.load(paths[pathIndex],g=>{character=g.scene;character.visible=true;const b=new THREE.Box3().setFromObject(character),sz=b.getSize(new THREE.Vector3());if(sz.y>0)character.scale.setScalar(1.72/sz.y);character.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(character);character.position.set(0,-bb.min.y,5.8);scene.add(character);mixer=new THREE.AnimationMixer(character);const clips=g.animations||[];const wc=clips.find(c=>/walk|walking|run/i.test(c.name));const ic=clips.find(c=>/idle|stand|breath/i.test(c.name));if(wc)walkAction=mixer.clipAction(wc);if(ic)idleAction=mixer.clipAction(ic);if(idleAction){idleAction.play();activeAction=idleAction}else if(walkAction){walkAction.play();activeAction=walkAction}else if(clips.length){activeAction=mixer.clipAction(clips[0]);activeAction.play();}status.textContent='Kota Perantauan • Isman siap • Animasi: '+clips.length;},undefined,()=>loadIsman(pathIndex+1));}
+loadIsman();
 // Joystick
 let active=false,pid=null,jx=0,jy=0;function stick(e){const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=e.clientX-cx,dy=e.clientY-cy,l=Math.hypot(dx,dy),max=49;if(l>max){dx*=max/l;dy*=max/l}jx=dx/max;jy=dy/max;knob.style.left=`calc(50% + ${dx}px)`;knob.style.top=`calc(50% + ${dy}px)`}function release(){active=false;pid=null;jx=jy=0;knob.style.left='50%';knob.style.top='50%'}joy.addEventListener('pointerdown',e=>{e.preventDefault();active=true;pid=e.pointerId;joy.setPointerCapture(pid);stick(e)});joy.addEventListener('pointermove',e=>{if(active&&e.pointerId===pid)stick(e)});joy.addEventListener('pointerup',release);joy.addEventListener('pointercancel',release);
 function collides(x,z){for(const o of obstacles)if(Math.abs(x-o.x)<o.w/2+.32&&Math.abs(z-o.z)<o.d/2+.32)return true;return false}
