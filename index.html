@@ -59,28 +59,41 @@ function addAsset(file,x,y,z,height,rotation=0,collision=null,folder=''){
 }
 // Modular shacks assembled from the actual Kenney wall and roof GLBs.
 // Small segments, mismatched panels and patched metal roofs create the dense, improvised look.
+// Bangunan permukiman memakai model bangunan utuh dari asset pack, bukan panel kubus buatan.
+const buildingAssetNames = [
+  'building-type-a.glb','building-type-b.glb','building-type-c.glb',
+  'building-type-d.glb','building-type-e.glb','building-type-f.glb',
+  'building-type-g.glb','building-type-h.glb','building-type-i.glb',
+  'building-type-j.glb','building-type-k.glb','building-type-l.glb'
+];
+function addBuildingAsset(x,z,w,d,h,variant=0,collision=true){
+  const ordered = buildingAssetNames.map((_,i)=>buildingAssetNames[(variant+i)%buildingAssetNames.length]);
+  function tryAsset(i){
+    if(i>=ordered.length){console.warn('Tidak ada building-type asset yang berhasil dimuat');return;}
+    loader.load(base+ordered[i],g=>{
+      const obj=g.scene;
+      let bounds=new THREE.Box3().setFromObject(obj);
+      const size=bounds.getSize(new THREE.Vector3());
+      if(size.x<.001||size.y<.001||size.z<.001){tryAsset(i+1);return;}
+      // Skala seragam supaya bentuk bangunan asli tidak gepeng.
+      const scale=Math.min(w/size.x,d/size.z,h/size.y);
+      obj.scale.setScalar(scale);
+      obj.updateMatrixWorld(true);
+      bounds.setFromObject(obj);
+      obj.position.set(x,-bounds.min.y,z);
+      // Variasi rotasi memberi orientasi berbeda, bukan mengubah mesh bangunan.
+      obj.rotation.y=(variant%4)*Math.PI/2;
+      scene.add(obj);
+      if(collision) obstacle(x,z,w*.78,d*.78);
+    },undefined,()=>tryAsset(i+1));
+  }
+  tryAsset(0);
+}
 function shack(cx,cz,w=5.0,d=4.5,h=3.0,variant=0){
- const front=cz<0?1:-1;const wallFiles=['wall-a-flat.glb','wall-a-flat-painted.glb','wall-b-flat.glb','wall-a-flat-window.glb','wall-b-flat-window.glb'];
- const doorFiles=['wall-a-door.glb','wall-b-door.glb'];
- const roofFiles=['wall-a-roof.glb','wall-a-roof-detailed.glb','wall-a-roof-slant.glb','wall-b-roof.glb','roof-metal-type-a.glb','roof-metal-type-b.glb'];
- const n=Math.max(2,Math.round(w/1.75));const step=w/n;
- for(let i=0;i<n;i++){
-   const x=cx-w/2+step*(i+.5);let f=(i===Math.floor(n/2)&&variant%3===0)?doorFiles[variant%2]:wallFiles[(i+variant)%wallFiles.length];
-   addAsset(f,x,0,cz+front*d/2,h,front===1?0:Math.PI);
- }
- // side walls close the shack and make an irregular alley silhouette
- const sideCount=Math.max(2,Math.round(d/1.8));for(const s of [-1,1])for(let i=0;i<sideCount;i++){
-   const z=cz-d/2+(i+.5)*(d/sideCount);addAsset(wallFiles[(i+variant+(s===1?1:2))%wallFiles.length],cx+s*w/2,0,z,h,s===1?Math.PI/2:-Math.PI/2);
- }
- // back wall
- for(let i=0;i<n;i++){const x=cx-w/2+step*(i+.5);addAsset(wallFiles[(i+variant+2)%wallFiles.length],x,0,cz-front*d/2,h,front===1?Math.PI:0)}
- // roof sheets slightly overhang the walls; mix metal and weathered wooden pieces
- addAsset(roofFiles[variant%roofFiles.length],cx,h*.78,cz,h*.78,variant%2?Math.PI/2:0);
- if(variant%2===0)addAsset('detail-awning-wide.glb',cx,0,cz+front*(d/2+.35),.8,front===1?0:Math.PI);
- // broken boards and dark foundation clutter around front
- // Tidak membuat slab pondasi tambahan: slab yang bertumpuk dengan ubin menyebabkan z-fighting.
- obstacle(cx,cz,w*.78,d*.78);
- if(variant%2===1){addAsset('wall-b-broken-type-a.glb',cx-w*.35,0,cz+front*(d/2+.15),1.3,0);}
+  addBuildingAsset(cx,cz,w,d,h,variant,true);
+  // Aset lingkungan yang benar untuk kesan kumuh; tidak membuat dinding/atap dari box.
+  if(variant%2===0) addAsset('detail-dumpster-open.glb',cx+w*.58,0,cz+d*.22,1.0,variant*.25,[.9,.7]);
+  if(variant%3===1) addAsset('pallet-small.glb',cx-w*.58,0,cz+d*.28,.45,variant*.2);
 }
 // Close-packed rows, staggered so the street feels like a cramped settlement rather than a showroom
 const rows=[
@@ -117,44 +130,23 @@ function areaSign(title,sub,x,z,color){
  const postMat=mat('#554435');for(const px of [-1.75,1.75]){const post=new THREE.Mesh(new THREE.BoxGeometry(.14,2.4,.14),postMat);post.position.set(px,1.2,0);g.add(post)}g.position.set(x,0,z);scene.add(g);obstacle(x,z,1.5,.7);
 }
 function simpleBuilding(x,z,w,d,h,wallColor,roofColor,shopName,sub,opts={}){
- // Semua bangunan utama dirakit dari GLB Kenney yang tersedia, bukan kubus bangunan buatan.
- const front=z>0?-1:1;
- const wallFiles=['wall-a-flat.glb','wall-a-flat-painted.glb','wall-b-flat.glb','wall-a-flat-window.glb','wall-b-flat-window.glb','wall-a-flat-garage.glb'];
- const roofFiles=['wall-a-roof.glb','wall-a-roof-detailed.glb','wall-a-roof-slant.glb','wall-b-roof.glb','wall-b-roof-detailed.glb','roof-metal-type-a.glb','roof-metal-type-b.glb'];
- const variant=Math.abs(Math.round(x*3+z*5))%wallFiles.length;
- const count=Math.max(2,Math.round(w/1.65));
- const gap=w/count;
- // Panel depan-belakang diberi jarak kecil agar permukaan tidak saling bertumpuk.
- for(let i=0;i<count;i++){
-   const px=x-w/2+gap*(i+.5);
-   const f=(opts.shop&&i===Math.floor(count/2))?'wall-a-door.glb':wallFiles[(i+variant)%wallFiles.length];
-   addAsset(f,px,0,z+front*(d/2+.035),h,front===1?0:Math.PI);
-   addAsset(wallFiles[(i+variant+2)%wallFiles.length],px,0,z-front*(d/2+.035),h,front===1?Math.PI:0);
- }
- const sideCount=Math.max(2,Math.round(d/1.7));
- for(const side of [-1,1])for(let i=0;i<sideCount;i++){
-   const pz=z-d/2+(i+.5)*(d/sideCount);
-   addAsset(wallFiles[(i+variant+(side>0?1:3))%wallFiles.length],x+side*(w/2+.035),0,pz,h,side>0?Math.PI/2:-Math.PI/2);
- }
- // Atap seng/atap usang dari paket GLB, sedikit lebih tinggi dari dinding.
- addAsset(roofFiles[variant%roofFiles.length],x,h*.86,z,h*.82,variant%2?Math.PI/2:0);
- // Detail kumuh dari asset asli, diletakkan di luar bidang dinding.
- if(opts.shop){
-   addAsset('detail-awning-small.glb',x,0,z+front*(d/2+.42),.72,front===1?0:Math.PI);
-   if(variant%2===0)addAsset('pallet-small.glb',x-w*.28,0,z+front*(d/2+.8),.38,Math.random()*0.2);
- }
- areaSign(shopName,sub,x,z-front*(d/2+1.25),'#554331');
- obstacle(x,z,w*.78,d*.78);
+  // Pakai model bangunan utuh building-type-*.glb dari folder assets/models.
+  const variant=Math.abs(Math.round(x*3+z*5))%buildingAssetNames.length;
+  addBuildingAsset(x,z,w,d,h,variant,true);
+  // Papan nama tetap berupa signage kecil; bangunannya sendiri berasal dari GLB asli.
+  areaSign(shopName,sub,x,z+(z>0?-1:1)*(d/2+1.1),'#554331');
+  if(opts.shop){
+    addAsset('detail-awning-wide.glb',x,0,z+(z>0?-1:1)*(d/2+.45),.8,z>0?Math.PI:0);
+    if(variant%2===0)addAsset('pallet-small.glb',x-w*.28,0,z+(z>0?-1:1)*(d/2+.8),.38,0);
+  }
 }
 function kost(x,z,name,price,variant){
- // Kost juga memakai panel dinding, pintu, jendela dan atap GLB dari asset pack.
- const roofTypes=[0,2,4,1,5];
- simpleBuilding(x,z,5.8,4.8,variant===0?2.8:3.2,'#777164','#54483a',name,price,{shop:true});
- // Barang bekas di depan kost, tanpa geometri besar yang bertumpuk dengan lantai.
- if(variant===0||variant===1){
-   addAsset('detail-dumpster-closed.glb',x-3.4,0,z+.8,.85,0,[.8,.65]);
-   addAsset('detail-bricks-type-b.glb',x+3.2,0,z+1.0,.42,Math.PI/5);
- }
+  // Kost menggunakan model bangunan utuh, bukan simpleBuilding berbentuk kubus.
+  simpleBuilding(x,z,5.8,4.8,variant===0?2.8:3.2,'#777164','#54483a',name,price,{shop:false});
+  if(variant===0||variant===1){
+    addAsset('detail-dumpster-closed.glb',x-3.4,0,z+.8,.85,0,[.8,.65]);
+    addAsset('detail-bricks-type-b.glb',x+3.2,0,z+1.0,.42,Math.PI/5);
+  }
 }
 // Lima kost tersebar di distrik yang berbeda, tidak bersebelahan.
 kost(-39,-30,'KOST BU SUMI','Rp400 rb / bulan',0);
