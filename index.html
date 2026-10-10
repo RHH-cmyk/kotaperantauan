@@ -36,7 +36,16 @@ function configureCamera(){cameraHeight=Number(heightSlider.value);cameraDistanc
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'low-power'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;document.body.insertBefore(renderer.domElement,status);
 scene.add(new THREE.HemisphereLight(0xffe8c8,0x393b35,2.0));const sun=new THREE.DirectionalLight(0xffd9a2,2.0);sun.position.set(-12,22,8);scene.add(sun);
 const manager=new THREE.LoadingManager();
-manager.setURLModifier(url=>{const clean=decodeURIComponent(url.split('?')[0]);if(/\.(png|jpe?g|webp|ktx2?)$/i.test(clean)){const name=clean.split('/').pop();return './assets/models/textures/'+name;}return url;});
+manager.setURLModifier(url=>{
+ const clean=decodeURIComponent(url.split('?')[0]);
+ // Hanya arahkan tekstur lokal model; biarkan URL eksternal tetap utuh.
+ if(/^https?:\/\//i.test(url)||/^data:/i.test(url)) return url;
+ if(/\.(png|jpe?g|webp|ktx2?)$/i.test(clean)){
+   const name=clean.split('/').pop();
+   return './assets/models/textures/'+name;
+ }
+ return url;
+});
 const loader=new GLTFLoader(manager),base='./assets/models/';
 const mat=(c,r=1)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
 const M={earth:mat('#6d705c'),asphalt:mat('#373a37'),patch:mat('#514f45'),side:mat('#918a78'),curb:mat('#b0a58e'),drain:mat('#292d2a'),dirt:mat('#625b49'),rust:mat('#754a34'),rust2:mat('#986044'),wood:mat('#68503a'),wall:mat('#777466'),dark:mat('#202522'),stain:mat('#4e5148'),sand:mat('#a08c6c')};
@@ -70,15 +79,17 @@ function shack(cx,cz,w=5.0,d=4.5,h=3.0,variant=0){
  }
  // side walls close the shack and make an irregular alley silhouette
  const sideCount=Math.max(2,Math.round(d/1.8));for(const s of [-1,1])for(let i=0;i<sideCount;i++){
-   const z=cz-d/2+(i+.5)*(d/sideCount);addAsset(wallFiles[(i+variant+(s===1?1:2))%wallFiles.length],cx+s*w/2,0,z,h,s===1?Math.PI/2:-Math.PI/2);
+   const z=cz-d/2+(i+.5)*(d/sideCount);addAsset(wallFiles[(i+variant+(s===1?1:2))%wallFiles.length],cx+s*(w/2-.04),0,z,h,s===1?Math.PI/2:-Math.PI/2);
  }
  // back wall
  for(let i=0;i<n;i++){const x=cx-w/2+step*(i+.5);addAsset(wallFiles[(i+variant+2)%wallFiles.length],x,0,cz-front*d/2,h,front===1?Math.PI:0)}
  // roof sheets slightly overhang the walls; mix metal and weathered wooden pieces
- addAsset(roofFiles[variant%roofFiles.length],cx,h*.78,cz,h*.78,variant%2?Math.PI/2:0);
+ // Atap duduk dekat bibir atas dinding; posisi bawah aset, bukan titik tengah.
+  addAsset(roofFiles[variant%roofFiles.length],cx,h*.93,cz,h*.68,variant%2?Math.PI/2:0);
  if(variant%2===0)addAsset('detail-awning-wide.glb',cx,0,cz+front*(d/2+.35),.8,front===1?0:Math.PI);
  // broken boards and dark foundation clutter around front
- block(w+.15,.18,d+.15,cx,.12,cz,M.wall);obstacle(cx,cz,w*.78,d*.78);
+ // Fondasi tipis dan sedikit di bawah tanah agar tidak menembus panel dinding.
+  block(w+.06,.10,d+.06,cx,-.035,cz,M.wall);obstacle(cx,cz,w*.78,d*.78);
  if(variant%2===1){addAsset('wall-b-broken-type-a.glb',cx-w*.35,0,cz+front*(d/2+.15),1.3,0);}
 }
 // Close-packed rows, staggered so the street feels like a cramped settlement rather than a showroom
@@ -98,7 +109,7 @@ for(const side of [-1,1]){
 addAsset('truck-grey.glb',-8.8,0,-.7,2.25,Math.PI/2,[3.8,2.0]);addAsset('truck-green.glb',9.2,0,1.0,2.15,-Math.PI/2,[3.8,2.0]);
 for(let x=-18;x<=18;x+=5.8){if(Math.random()>.5)addAsset('detail-barrier-strong-type-a.glb',x,0,Math.random()>.5?2.8:-2.8,.75,Math.random()*.15,[1.5,.45]);if(Math.random()>.55)addAsset('detail-block.glb',x+.7,0,Math.random()>.5?6.2:-6.2,.6,Math.random()*2)}
 // Extra scrap panels leaned against walls; visible grime streaks without oversized clean boxes
-for(let side of [-1,1])for(let x=-16;x<=16;x+=3.2){if(Math.random()>.45){block(.8+Math.random()*.5,.85,.08,x,.48,side*9.05,Math.random()>.5?M.rust:M.wood,(Math.random()-.5)*.12)}if(Math.random()>.6){block(.55,.45,.5,x+.6,.24,side*6.9,M.dirt);block(.5,.06,.45,x+.6,.5,side*6.9,M.rust)}}
+for(let side of [-1,1])for(let x=-16;x<=16;x+=3.8){if(Math.random()>.58){block(.8+Math.random()*.5,.85,.08,x,.48,side*9.05,Math.random()>.5?M.rust:M.wood,(Math.random()-.5)*.12)}if(Math.random()>.72){block(.55,.45,.5,x+.6,.24,side*6.9,M.dirt);block(.5,.06,.45,x+.6,.5,side*6.9,M.rust)}}
 // KOTA LUAR: jalan penghubung dan distrik yang berjauhan.
 // Label dibuat sebagai papan 3D sederhana agar nama area terbaca tanpa aset tambahan.
 block(8,.16,112,0,-.12,0,M.asphalt);
