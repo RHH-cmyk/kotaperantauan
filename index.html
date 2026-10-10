@@ -69,7 +69,17 @@ const buildingAssetNames = [
 function addBuildingAsset(x,z,w,d,h,variant=0,collision=true){
   const ordered = buildingAssetNames.map((_,i)=>buildingAssetNames[(variant+i)%buildingAssetNames.length]);
   function tryAsset(i){
-    if(i>=ordered.length){console.warn('Tidak ada building-type asset yang berhasil dimuat');return;}
+    if(i>=ordered.length){
+      // Fallback aman: tetap tampilkan bangunan dari panel GLB asli, bukan menghilangkan bangunan.
+      const wallFiles=['wall-a-flat.glb','wall-a-flat-painted.glb','wall-b-flat.glb','wall-a-flat-window.glb','wall-b-flat-window.glb'];
+      const roofFiles=['wall-a-roof.glb','wall-a-roof-detailed.glb','wall-a-roof-slant.glb','wall-b-roof.glb','wall-b-roof-detailed.glb','roof-metal-type-a.glb','roof-metal-type-b.glb'];
+      const front=z<0?1:-1, count=Math.max(2,Math.round(w/1.7)), step=w/count;
+      for(let n=0;n<count;n++) addAsset(wallFiles[(variant+n)%wallFiles.length],x-w/2+step*(n+.5),0,z+front*d/2,h,front===1?0:Math.PI);
+      for(let side of [-1,1]) for(let n=0;n<Math.max(2,Math.round(d/1.7));n++) addAsset(wallFiles[(variant+n+(side===1?1:2))%wallFiles.length],x+side*w/2,0,z-d/2+(n+.5)*(d/Math.max(2,Math.round(d/1.7))),h,side===1?Math.PI/2:-Math.PI/2);
+      addAsset(roofFiles[variant%roofFiles.length],x,h*.82,z,h*.8,variant%2?Math.PI/2:0);
+      if(collision) obstacle(x,z,w*.78,d*.78);
+      console.warn('Bangunan memakai fallback panel GLB:',x,z);return;
+    }
     loader.load(base+ordered[i],g=>{
       const obj=g.scene;
       let bounds=new THREE.Box3().setFromObject(obj);
