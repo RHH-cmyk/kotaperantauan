@@ -3,109 +3,91 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Kota Perantauan — Kota Kumuh</title>
+<title>Kota Perantauan — Gang Kumuh</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}html,body{width:100%;height:100%;overflow:hidden;background:#343a37;touch-action:none}canvas{display:block;width:100%;height:100%}#status{position:fixed;top:12px;left:12px;z-index:5;max-width:82%;padding:9px 12px;color:#f4f0e8;background:#17201ddd;border:1px solid #ffffff20;border-radius:8px;font:12px Arial,sans-serif;pointer-events:none}#joy{position:fixed;left:24px;bottom:28px;width:142px;height:142px;border:3px solid #ffffff55;background:#1119;border-radius:50%;z-index:10;touch-action:none}#knob{position:absolute;left:50%;top:50%;width:62px;height:62px;transform:translate(-50%,-50%);border-radius:50%;border:3px solid #fff;background:#b9b9b9c9;pointer-events:none}#hint{position:fixed;right:12px;bottom:18px;color:#fff9;font:11px Arial;background:#17201d99;padding:7px 9px;border-radius:6px;pointer-events:none}
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}html,body{width:100%;height:100%;overflow:hidden;background:#343a37;touch-action:none}canvas{display:block;width:100%;height:100%}#status{position:fixed;top:12px;left:12px;z-index:5;max-width:84%;padding:9px 12px;color:#f4f0e8;background:#17201ddd;border:1px solid #ffffff20;border-radius:8px;font:12px Arial,sans-serif;pointer-events:none}#joy{position:fixed;left:22px;bottom:26px;width:142px;height:142px;border:3px solid #ffffff55;background:#1119;border-radius:50%;z-index:10;touch-action:none}#knob{position:absolute;left:50%;top:50%;width:62px;height:62px;transform:translate(-50%,-50%);border-radius:50%;border:3px solid #fff;background:#b9b9b9c9;pointer-events:none}#hint{position:fixed;right:10px;bottom:18px;color:#fff9;font:11px Arial;background:#17201d99;padding:7px 9px;border-radius:6px;pointer-events:none}
 </style>
-</head>
-<body>
-<div id="status">Membangun kota...</div><div id="joy"><div id="knob"></div></div><div id="hint">Scene kota • joystick untuk menjelajah</div>
+</head><body>
+<div id="status">Membangun gang...</div><div id="joy"><div id="knob"></div></div><div id="hint">Scene kota • joystick untuk menjelajah</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 const status=document.querySelector('#status'),joy=document.querySelector('#joy'),knob=document.querySelector('#knob');
-const scene=new THREE.Scene();scene.background=new THREE.Color('#9a9b87');scene.fog=new THREE.Fog('#9a9b87',55,115);
-const camera=new THREE.OrthographicCamera(-20,20,20,-20,.1,220);camera.position.set(22,28,24);camera.lookAt(0,0,0);
-const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'low-power'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;document.body.insertBefore(renderer.domElement,status);
-scene.add(new THREE.HemisphereLight(0xfff2d8,0x454b43,2.0));const sun=new THREE.DirectionalLight(0xffd7a0,2.1);sun.position.set(-15,30,10);scene.add(sun);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#73766b');scene.fog=new THREE.Fog('#73766b',42,82);
+const camera=new THREE.OrthographicCamera(-7,7,7,-7,.1,180);camera.position.set(10,13,12);camera.lookAt(0,0,0);
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'low-power'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;document.body.insertBefore(renderer.domElement,status);
+scene.add(new THREE.HemisphereLight(0xffe8c8,0x393b35,2.0));const sun=new THREE.DirectionalLight(0xffd9a2,2.0);sun.position.set(-12,22,8);scene.add(sun);
 const manager=new THREE.LoadingManager();
-// Beberapa model merujuk tekstur dengan path relatif berbeda. Arahkan file gambar ke folder tekstur yang benar.
-manager.setURLModifier(url=>{
-  const clean=decodeURIComponent(url.split('?')[0]);
-  if (/\.(png|jpe?g|webp|ktx2?)$/i.test(clean)) {
-    const name=clean.split('/').pop();
-    return './assets/models/textures/'+name;
-  }
-  return url;
-});
-const loader=new GLTFLoader(manager),base='./assets/models/',charBase='./assets/models/character/';
-const M={ground:mat('#777d65'),asphalt:mat('#414341'),patch:mat('#555650'),side:mat('#8e897d'),curb:mat('#aaa28e'),concrete:mat('#716e63'),wall1:mat('#b6a38a'),wall2:mat('#9a8c77'),wall3:mat('#77796b'),rust:mat('#784c35'),roof:mat('#55564f'),roof2:mat('#65564a'),dark:mat('#252a27'),window:mat('#53666a'),wood:mat('#80583d'),trash:mat('#454943'),paint:mat('#a65d3c'),yellow:mat('#b79a50'),green:mat('#596747')};
-function mat(c,rough=1){return new THREE.MeshStandardMaterial({color:c,roughness:rough})}
+manager.setURLModifier(url=>{const clean=decodeURIComponent(url.split('?')[0]);if(/\.(png|jpe?g|webp|ktx2?)$/i.test(clean)){const name=clean.split('/').pop();return './assets/models/textures/'+name;}return url;});
+const loader=new GLTFLoader(manager),base='./assets/models/';
+const mat=(c,r=1)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
+const M={earth:mat('#6d705c'),asphalt:mat('#373a37'),patch:mat('#514f45'),side:mat('#918a78'),curb:mat('#b0a58e'),drain:mat('#292d2a'),dirt:mat('#625b49'),rust:mat('#754a34'),rust2:mat('#986044'),wood:mat('#68503a'),wall:mat('#777466'),dark:mat('#202522'),stain:mat('#4e5148'),sand:mat('#a08c6c')};
 const obstacles=[];let character=null,mixer=null,walkAction=null,idleAction=null,activeAction=null;const clock=new THREE.Clock();
-function block(w,h,d,x,y,z,material,opts={}){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);o.position.set(x,y,z);if(opts.rot)o.rotation.y=opts.rot;if(opts.cast)o.castShadow=true;scene.add(o);return o}
+function block(w,h,d,x,y,z,m,rot=0){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.rotation.y=rot;scene.add(o);return o}
+function ground(w,d,x,z,m,y=-.22){block(w,.32,d,x,y,z,m)}
 function obstacle(x,z,w,d){obstacles.push({x,z,w,d})}
-function ground(w,d,x,z,m,y=-.2){block(w,.35,d,x,y,z,m)}
-// Base terrain, worn asphalt, sidewalks and patched road
- ground(100,90,0,0,M.ground,-.35);
-block(92,.18,10,0,-.12,0,M.asphalt);for(let x=-45;x<46;x+=7){block(3,.025,.14,x,-.015,0,M.curb)}
-// cracked road repair patches
-for(let i=0;i<30;i++){let x=-43+Math.random()*86,z=(Math.random()-.5)*7;block(.5+Math.random()*2,.012,.25+Math.random()*.65,x,-.012,z,M.patch,{rot:Math.random()})}
-// sidewalk strips, drains, curb edges
-for(const side of [-1,1]){block(94,.26,4.4,0,-.02,side*7.15,M.side);block(94,.28,.22,0,.08,side*4.85,M.curb);block(94,.12,.34,0,-.06,side*4.55,M.dark);for(let x=-45;x<46;x+=2.5)block(2.25,.025,2.05,x,.12,side*7.15,M.curb);}
-// side alleys and back lots
-for(const side of [-1,1]){block(14,.12,26,side*39,-.12,0,M.side);}
-// procedural cramped, irregular houses/shops. Road-facing front is toward z=0.
-function building(x,z,w,depth,h,style=0){
- const wall=[M.wall1,M.wall2,M.wall3,M.concrete][style%4],frontZ=z+Math.sign(-z)*depth*.5;
- block(w,h,depth,x,h/2-.02,z,wall); // main shell
- // dark plinth and roof slab
- block(w+.18,.35,depth+.18,x,.18,z,M.concrete);
- block(w+.65,.28,depth+.65,x,h+.02,z,style%2?M.roof2:M.roof);
- // roof sheet ribs and rusty panels
- for(let k=-w/2+.35;k<w/2;k+=.65)block(.055,.035,depth+.25,x+k,h+.18,z,style%2?M.rust:M.patch);
- // front windows and door
- const fz=z-Math.sign(z)*(depth/2+.035);
- const winMat=[M.window,M.dark,M.wood][style%3];
- for(let wx=x-w*.28;wx<x+w*.36;wx+=Math.max(1.25,w*.38)){
-  block(Math.min(1.45,w*.28),1.05,.08,wx,Math.min(h-1.15,2.25),fz, M.dark);
-  block(Math.min(1.18,w*.25),.78,.035,wx,.0+Math.min(h-1.15,2.25),fz-.055,winMat);
-  block(.045,.85,.045,wx,.0+Math.min(h-1.15,2.25),fz-.08,M.curb);
+// Compact city block: a narrow damaged road and uneven sidewalks
+ ground(64,52,0,0,M.earth,-.42);
+block(42,.18,7.2,0,-.13,0,M.asphalt);
+// worn road patches, broken lane marks and gutter edges
+for(let i=0;i<18;i++){let x=-20+Math.random()*40,z=(Math.random()-.5)*6.3;block(.35+Math.random()*1.35,.012,.2+Math.random()*.55,x,-.025,z,M.patch,(Math.random()-.5)*.8)}
+for(let x=-19;x<=19;x+=6)block(1.5,.025,.12,x,-.018,0,M.curb);
+for(const side of [-1,1]){block(42,.22,3.1,0,-.01,side*5.15,M.side);block(42,.2,.18,0,.06,side*3.58,M.curb);block(42,.11,.22,0,-.04,side*3.42,M.drain);for(let x=-20;x<=20;x+=2.3){block(2.12,.025,1.42,x,.115,side*5.15,M.curb);if(Math.random()>.45)block(.5,.018,.22,x+(Math.random()-.5)*.5,.14,side*5.15,M.dirt)}}
+// Dirt, rubbish and cracks around the footpaths
+for(let i=0;i<26;i++){let x=-20+Math.random()*40,side=Math.random()>.5?1:-1,z=side*(4.2+Math.random()*2.4);block(.15+Math.random()*.4,.015,.12+Math.random()*.35,x,.145,z,M.dirt,(Math.random()-.5))}
+// Keep model scale proportional and ground it at the requested y
+function addAsset(file,x,y,z,height,rotation=0,collision=null,folder=''){
+ loader.load(base+folder+file,g=>{const o=g.scene;let b=new THREE.Box3().setFromObject(o),sz=b.getSize(new THREE.Vector3());if(sz.y<.0001)return;o.scale.setScalar(height/sz.y);o.updateMatrixWorld(true);b.setFromObject(o);o.position.set(x,y-b.min.y,z);o.rotation.y=rotation;scene.add(o);if(collision)obstacle(x,z,collision[0],collision[1]);},undefined,()=>{});
+}
+// Modular shacks assembled from the actual Kenney wall and roof GLBs.
+// Small segments, mismatched panels and patched metal roofs create the dense, improvised look.
+function shack(cx,cz,w=5.0,d=4.5,h=3.0,variant=0){
+ const front=cz<0?1:-1;const wallFiles=['wall-a-flat.glb','wall-a-flat-painted.glb','wall-b-flat.glb','wall-a-flat-window.glb','wall-b-flat-window.glb'];
+ const doorFiles=['wall-a-door.glb','wall-b-door.glb'];
+ const roofFiles=['wall-a-roof.glb','wall-a-roof-detailed.glb','wall-a-roof-slant.glb','wall-b-roof.glb','roof-metal-type-a.glb','roof-metal-type-b.glb'];
+ const n=Math.max(2,Math.round(w/1.75));const step=w/n;
+ for(let i=0;i<n;i++){
+   const x=cx-w/2+step*(i+.5);let f=(i===Math.floor(n/2)&&variant%3===0)?doorFiles[variant%2]:wallFiles[(i+variant)%wallFiles.length];
+   addAsset(f,x,0,cz+front*d/2,h,front===1?0:Math.PI);
  }
- const doorX=x+(style%2? w*.25:-w*.25);block(.95,2.1,.1,doorX,1.1,fz-.07,M.dark);block(.72,1.82,.04,doorX,1.1,fz-.14,style%2?M.wood:M.rust);
- // awning on many shopfronts
- if(style%3!==0){block(w*.82,.14,.9,x,2.8,fz-.48,M.rust);for(let a=-w*.35;a<w*.4;a+=.6)block(.06,.16,.92,x+a,2.82,fz-.5,M.yellow)}
- // grime streaks and patched panels
- for(let n=0;n<Math.floor(w*1.4);n++){let px=x+(Math.random()-.5)*w*.86;let py=.55+Math.random()*(h-1);block(.08+Math.random()*.2,.12+Math.random()*.7,.025,px,py,fz-.065,[M.concrete,M.rust,M.wall3][Math.floor(Math.random()*3)])}
- obstacle(x,z,w*.82,depth*.8);
-}
-// Dense, varied rows with narrow gaps
-const leftSpecs=[[-39, -15,8,8,6],[-29,-16,9,7,8],[-18,-15,10,8,6],[-7,-16,8,7,7],[4,-16,10,8,9],[16,-15,9,7,6],[27,-16,10,8,8],[39,-15,8,7,6]];
-const rightSpecs=[[-39,15,9,8,7],[-28,16,10,7,6],[-17,15,8,8,9],[-6,16,10,7,6],[5,15,9,8,8],[16,16,8,7,6],[27,15,10,8,9],[39,16,8,7,6]];
-for(const [x,z,w,d,h] of [...leftSpecs,...rightSpecs])building(x,z,w,d,h,Math.floor(Math.random()*4));
-// rear layers make the town feel crowded
-for(const side of [-1,1])for(let x=-38;x<=39;x+=12){building(x,side*27,10,8,5+Math.random()*4,Math.floor(Math.random()*4));}
-// narrow alley strips and clutter
-for(const side of [-1,1]){
- for(let x=-42;x<43;x+=5.5){
-  // fence fragments / leaning planks
-  if(Math.random()>.25){block(2.1,1.2,.14,x,.65,side*10.2,M.wood,{rot:(Math.random()-.5)*.12});obstacle(x,side*10.2,2.1,.25)}
-  if(Math.random()>.4){block(.65,.75,.6,x+(Math.random()-.5)*1.5,.38,side*(11.5+Math.random()*1.5),M.trash);block(.55,.09,.5,x,.8,side*12,M.concrete)}
-  if(Math.random()>.65){block(.85,.65,.6,x,.33,side*9.1,M.rust);block(.88,.08,.62,x,.7,side*9.1,M.wood)}
+ // side walls close the shack and make an irregular alley silhouette
+ const sideCount=Math.max(2,Math.round(d/1.8));for(const s of [-1,1])for(let i=0;i<sideCount;i++){
+   const z=cz-d/2+(i+.5)*(d/sideCount);addAsset(wallFiles[(i+variant+(s===1?1:2))%wallFiles.length],cx+s*w/2,0,z,h,s===1?Math.PI/2:-Math.PI/2);
  }
+ // back wall
+ for(let i=0;i<n;i++){const x=cx-w/2+step*(i+.5);addAsset(wallFiles[(i+variant+2)%wallFiles.length],x,0,cz-front*d/2,h,front===1?Math.PI:0)}
+ // roof sheets slightly overhang the walls; mix metal and weathered wooden pieces
+ addAsset(roofFiles[variant%roofFiles.length],cx,h*.78,cz,h*.78,variant%2?Math.PI/2:0);
+ if(variant%2===0)addAsset('detail-awning-wide.glb',cx,0,cz+front*(d/2+.35),.8,front===1?0:Math.PI);
+ // broken boards and dark foundation clutter around front
+ block(w+.15,.18,d+.15,cx,.12,cz,M.wall);obstacle(cx,cz,w*.78,d*.78);
+ if(variant%2===1){addAsset('wall-b-broken-type-a.glb',cx-w*.35,0,cz+front*(d/2+.15),1.3,0);}
 }
-// Asset loading helpers: preserve model proportions, sit models on ground, and tolerate missing files.
-function addAsset(file,x,y,z,height,rotation=0,scaleXZ=1,collision=null,folder=''){
- loader.load(base+folder+file,g=>{const o=g.scene;let b=new THREE.Box3().setFromObject(o),sz=b.getSize(new THREE.Vector3());if(!sz.y)return;const s=height/sz.y;o.scale.setScalar(s);o.updateMatrixWorld(true);b.setFromObject(o);o.position.set(x,y-b.min.y,z);o.rotation.y=rotation;o.traverse(n=>{if(n.isMesh){n.castShadow=false;n.receiveShadow=false}});scene.add(o);if(collision)obstacle(x,z,collision[0],collision[1]);},undefined,()=>{});
-}
-// Roadside props using actual bundled models
+// Close-packed rows, staggered so the street feels like a cramped settlement rather than a showroom
+const rows=[
+ [-15.5,-11.3,5.2,4.7,3.3,0],[-9.8,-11.8,4.7,4.2,3.0,2],[-4.5,-11.4,4.8,4.8,3.7,1],[1.0,-11.8,5.0,4.4,3.2,3],[6.6,-11.3,4.8,4.8,3.6,4],[12.0,-11.8,5.0,4.3,3.0,5],[17.3,-11.5,4.5,4.7,3.4,2],
+ [-17.0,11.6,4.8,4.4,3.0,3],[-11.5,11.9,5.1,4.8,3.6,4],[-5.8,11.4,4.7,4.4,3.1,5],[-.5,11.8,5.0,4.8,3.7,0],[5.0,11.5,4.7,4.3,3.0,1],[10.3,11.8,5.0,4.7,3.5,2],[15.8,11.4,4.8,4.3,3.0,4]
+];
+rows.forEach(a=>shack(...a));
+// Second layer of roofs and walls behind the first row for an overcrowded skyline
+for(let x=-15;x<=16;x+=7.7){shack(x,-17.5,5.5,4.2,3.2,(Math.abs(Math.round(x))%6));shack(x,17.5,5.3,4.4,3.0,(Math.abs(Math.round(x))+2)%6)}
+// Alleys are cluttered with fences, patched barriers, crates, bricks, pallets and dumpsters
 for(const side of [-1,1]){
- for(let x=-40;x<=40;x+=11){addAsset('detail-light-single.glb',x,.0,side*5.4,3.7,0,1,[.45,.45]);if(x%2===0)addAsset('detail-bench.glb',x+2,0,side*8.6,1.0,side===1?Math.PI:0,1,[1.6,.8]);}
- for(let x=-37;x<=37;x+=13){addAsset('detail-dumpster-open.glb',x,0,side*9.5,1.5,0,1,[1.5,1.2]);addAsset('tree-shrub.glb',x+3,0,side*8.8,1.3);}
+ for(let x=-18;x<=18;x+=4.5){if(Math.random()>.25)addAsset('wall-fence.glb',x,0,side*8.2,1.55,side===1?Math.PI:0,[2.0,.4]);if(Math.random()>.4)addAsset('detail-dumpster-open.glb',x+.8,0,side*7.5,1.25,Math.random()*Math.PI,[1.25,.9]);if(Math.random()>.35)addAsset('detail-bricks-type-a.glb',x-.7,0,side*6.7,.55,Math.random()*2);if(Math.random()>.5)addAsset('pallet-small.glb',x+1.2,0,side*6.6,.48,Math.random()*2);if(Math.random()>.65)addAsset('planks.glb',x,0,side*6.5,.42,Math.random()*2)}
+ for(let x=-17;x<=17;x+=8.5){addAsset('tree-shrub.glb',x,0,side*6.2,1.25,Math.random()*2);addAsset('detail-light-single.glb',x+3.5,0,side*3.9,3.1,0,[.3,.3]);}
 }
-// parked battered vehicles, barriers, loose bricks, pallets and road clutter
-addAsset('truck-grey.glb',-24,0,-1.8,2.4,Math.PI/2,1,[5,2.4]);addAsset('truck-green.glb',25,0,1.7,2.3,-Math.PI/2,1,[5,2.4]);
-for(let x=-40;x<=40;x+=8){if(Math.random()>.4)addAsset('detail-bricks-type-a.glb',x,0,Math.random()>.5?9.4:-9.4,.55,Math.random()*2);if(Math.random()>.5)addAsset('pallet-small.glb',x+2,0,Math.random()>.5?11.4:-11.4,.55,Math.random()*2);}
-// Selected modular wall/fence pieces give the foreground extra visual density
-for(const side of [-1,1])for(let x=-35;x<36;x+=9){addAsset('wall-fence.glb',x,0,side*12.8,1.6,side===1?Math.PI:0,1,[2.3,.35]);}
-// Isman: coba lokasi folder baru, lalu lokasi lama sebagai cadangan.
-function loadIsman(pathIndex=0){const paths=['./assets/models/character/Isman.glb','./assets/models/Isman.glb'];if(pathIndex>=paths.length){status.textContent='Kota tampil • Isman gagal dimuat (periksa lokasi file)';return;}loader.load(paths[pathIndex],g=>{character=g.scene;character.visible=true;const b=new THREE.Box3().setFromObject(character),sz=b.getSize(new THREE.Vector3());if(sz.y>0)character.scale.setScalar(1.72/sz.y);character.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(character);character.position.set(0,-bb.min.y,5.8);scene.add(character);mixer=new THREE.AnimationMixer(character);const clips=g.animations||[];const wc=clips.find(c=>/walk|walking|run/i.test(c.name));const ic=clips.find(c=>/idle|stand|breath/i.test(c.name));if(wc)walkAction=mixer.clipAction(wc);if(ic)idleAction=mixer.clipAction(ic);if(idleAction){idleAction.play();activeAction=idleAction}else if(walkAction){walkAction.play();activeAction=walkAction}else if(clips.length){activeAction=mixer.clipAction(clips[0]);activeAction.play();}status.textContent='Kota Perantauan • Isman siap • Animasi: '+clips.length;},undefined,()=>loadIsman(pathIndex+1));}
+// Old vehicles partly parked on the road, barriers and scrap piles
+addAsset('truck-grey.glb',-8.8,0,-.7,2.25,Math.PI/2,[3.8,2.0]);addAsset('truck-green.glb',9.2,0,1.0,2.15,-Math.PI/2,[3.8,2.0]);
+for(let x=-18;x<=18;x+=5.8){if(Math.random()>.5)addAsset('detail-barrier-strong-type-a.glb',x,0,Math.random()>.5?2.8:-2.8,.75,Math.random()*.15,[1.5,.45]);if(Math.random()>.55)addAsset('detail-block.glb',x+.7,0,Math.random()>.5?6.2:-6.2,.6,Math.random()*2)}
+// Extra scrap panels leaned against walls; visible grime streaks without oversized clean boxes
+for(let side of [-1,1])for(let x=-16;x<=16;x+=3.2){if(Math.random()>.45){block(.8+Math.random()*.5,.85,.08,x,.48,side*9.05,Math.random()>.5?M.rust:M.wood,(Math.random()-.5)*.12)}if(Math.random()>.6){block(.55,.45,.5,x+.6,.24,side*6.9,M.dirt);block(.5,.06,.45,x+.6,.5,side*6.9,M.rust)}}
+// Isman is loaded from the character subfolder, with a root-level fallback
+function loadIsman(i=0){const paths=['./assets/models/character/Isman.glb','./assets/models/Isman.glb'];if(i>=paths.length){status.textContent='Map tampil • Isman gagal dimuat';return;}loader.load(paths[i],g=>{character=g.scene;const b=new THREE.Box3().setFromObject(character),sz=b.getSize(new THREE.Vector3());if(sz.y>0)character.scale.setScalar(1.72/sz.y);character.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(character);character.position.set(0,-bb.min.y,5.7);scene.add(character);mixer=new THREE.AnimationMixer(character);const clips=g.animations||[];const wc=clips.find(c=>/walk|walking|run/i.test(c.name)),ic=clips.find(c=>/idle|stand|breath/i.test(c.name));if(wc)walkAction=mixer.clipAction(wc);if(ic)idleAction=mixer.clipAction(ic);if(idleAction){idleAction.play();activeAction=idleAction}else if(walkAction){walkAction.play();activeAction=walkAction}else if(clips.length){activeAction=mixer.clipAction(clips[0]);activeAction.play()}status.textContent='Kota Perantauan • Isman siap • Animasi: '+clips.length;},undefined,()=>loadIsman(i+1));}
 loadIsman();
-// Joystick
+// Joystick input
 let active=false,pid=null,jx=0,jy=0;function stick(e){const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=e.clientX-cx,dy=e.clientY-cy,l=Math.hypot(dx,dy),max=49;if(l>max){dx*=max/l;dy*=max/l}jx=dx/max;jy=dy/max;knob.style.left=`calc(50% + ${dx}px)`;knob.style.top=`calc(50% + ${dy}px)`}function release(){active=false;pid=null;jx=jy=0;knob.style.left='50%';knob.style.top='50%'}joy.addEventListener('pointerdown',e=>{e.preventDefault();active=true;pid=e.pointerId;joy.setPointerCapture(pid);stick(e)});joy.addEventListener('pointermove',e=>{if(active&&e.pointerId===pid)stick(e)});joy.addEventListener('pointerup',release);joy.addEventListener('pointercancel',release);
-function collides(x,z){for(const o of obstacles)if(Math.abs(x-o.x)<o.w/2+.32&&Math.abs(z-o.z)<o.d/2+.32)return true;return false}
-const target=new THREE.Vector3(0,0,0);function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);if(mixer)mixer.update(dt);if(character){let dx=jx,dz=jy;const moving=Math.hypot(dx,dz)>.15;if(moving){const l=Math.hypot(dx,dz);dx/=Math.max(1,l);dz/=Math.max(1,l);const speed=4.1;const nx=THREE.MathUtils.clamp(character.position.x+dx*speed*dt,-45,45),nz=THREE.MathUtils.clamp(character.position.z+dz*speed*dt,-38,38);if(!collides(nx,character.position.z))character.position.x=nx;if(!collides(character.position.x,nz))character.position.z=nz;character.rotation.y=Math.atan2(dx,dz);if(walkAction&&activeAction!==walkAction){if(activeAction)activeAction.fadeOut(.12);walkAction.reset().fadeIn(.12).play();activeAction=walkAction}}else if(idleAction&&activeAction!==idleAction){if(activeAction)activeAction.fadeOut(.12);idleAction.reset().fadeIn(.12).play();activeAction=idleAction}target.set(character.position.x,0,character.position.z)}camera.position.x=THREE.MathUtils.lerp(camera.position.x,target.x+22,.065);camera.position.z=THREE.MathUtils.lerp(camera.position.z,target.z+24,.065);camera.lookAt(target);renderer.render(scene,camera)}
-function resize(){renderer.setSize(innerWidth,innerHeight);const a=innerWidth/innerHeight,v=20;camera.left=-v*a;camera.right=v*a;camera.top=v;camera.bottom=-v;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();animate();
-</script>
-</body>
-</html>
+function collides(x,z){for(const o of obstacles)if(Math.abs(x-o.x)<o.w/2+.3&&Math.abs(z-o.z)<o.d/2+.3)return true;return false}
+const target=new THREE.Vector3();function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);if(mixer)mixer.update(dt);if(character){let dx=jx,dz=jy;const moving=Math.hypot(dx,dz)>.15;if(moving){const l=Math.hypot(dx,dz);dx/=Math.max(1,l);dz/=Math.max(1,l);const speed=3.3,nx=THREE.MathUtils.clamp(character.position.x+dx*speed*dt,-20,20),nz=THREE.MathUtils.clamp(character.position.z+dz*speed*dt,-20,20);if(!collides(nx,character.position.z))character.position.x=nx;if(!collides(character.position.x,nz))character.position.z=nz;character.rotation.y=Math.atan2(dx,dz);if(walkAction&&activeAction!==walkAction){if(activeAction)activeAction.fadeOut(.12);walkAction.reset().fadeIn(.12).play();activeAction=walkAction}}else if(idleAction&&activeAction!==idleAction){if(activeAction)activeAction.fadeOut(.12);idleAction.reset().fadeIn(.12).play();activeAction=idleAction}target.set(character.position.x,0,character.position.z)}camera.position.x=THREE.MathUtils.lerp(camera.position.x,target.x+8.5,.09);camera.position.z=THREE.MathUtils.lerp(camera.position.z,target.z+9.5,.09);camera.lookAt(target);renderer.render(scene,camera)}
+function resize(){renderer.setSize(innerWidth,innerHeight);const a=innerWidth/innerHeight,v=7.2;camera.left=-v*a;camera.right=v*a;camera.top=v;camera.bottom=-v;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();animate();
+</script></body></html>
