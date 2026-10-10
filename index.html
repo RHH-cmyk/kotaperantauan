@@ -33,19 +33,10 @@ const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,220);camer
 let cameraHeight=13,cameraDistance=13,cameraAngle=48;
 function configureCamera(){cameraHeight=Number(heightSlider.value);cameraDistance=Number(distanceSlider.value);cameraAngle=Number(angleSlider.value);document.querySelector('#heightValue').textContent=cameraHeight;document.querySelector('#distanceValue').textContent=cameraDistance;document.querySelector('#angleValue').textContent=cameraAngle+'°';camera.fov=38;camera.updateProjectionMatrix()}
 [heightSlider,distanceSlider,angleSlider].forEach(el=>el.addEventListener('input',configureCamera));const cameraPanel=document.querySelector('#cameraPanel');document.querySelector('#cameraButton').addEventListener('pointerdown',e=>e.stopPropagation());document.querySelector('#cameraButton').addEventListener('click',e=>{e.stopPropagation();cameraPanel.classList.toggle('open')});cameraPanel.addEventListener('pointerdown',e=>e.stopPropagation());configureCamera();
-const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'low-power'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;document.body.insertBefore(renderer.domElement,status);
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance', logarithmicDepthBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;document.body.insertBefore(renderer.domElement,status);
 scene.add(new THREE.HemisphereLight(0xffe8c8,0x393b35,2.0));const sun=new THREE.DirectionalLight(0xffd9a2,2.0);sun.position.set(-12,22,8);scene.add(sun);
 const manager=new THREE.LoadingManager();
-manager.setURLModifier(url=>{
- const clean=decodeURIComponent(url.split('?')[0]);
- // Hanya arahkan tekstur lokal model; biarkan URL eksternal tetap utuh.
- if(/^https?:\/\//i.test(url)||/^data:/i.test(url)) return url;
- if(/\.(png|jpe?g|webp|ktx2?)$/i.test(clean)){
-   const name=clean.split('/').pop();
-   return './assets/models/textures/'+name;
- }
- return url;
-});
+manager.setURLModifier(url=>{const clean=decodeURIComponent(url.split('?')[0]);if(/\.(png|jpe?g|webp|ktx2?)$/i.test(clean)){const name=clean.split('/').pop();return './assets/models/textures/'+name;}return url;});
 const loader=new GLTFLoader(manager),base='./assets/models/';
 const mat=(c,r=1)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
 const M={earth:mat('#6d705c'),asphalt:mat('#373a37'),patch:mat('#514f45'),side:mat('#918a78'),curb:mat('#b0a58e'),drain:mat('#292d2a'),dirt:mat('#625b49'),rust:mat('#754a34'),rust2:mat('#986044'),wood:mat('#68503a'),wall:mat('#777466'),dark:mat('#202522'),stain:mat('#4e5148'),sand:mat('#a08c6c')};
@@ -57,8 +48,8 @@ function obstacle(x,z,w,d){obstacles.push({x,z,w,d})}
  ground(150,130,0,0,M.earth,-.42);
 block(42,.18,7.2,0,-.13,0,M.asphalt);
 // worn road patches, broken lane marks and gutter edges
-for(let i=0;i<18;i++){let x=-20+Math.random()*40,z=(Math.random()-.5)*6.3;block(.35+Math.random()*1.35,.012,.2+Math.random()*.55,x,-.025,z,M.patch,(Math.random()-.5)*.8)}
-for(let x=-19;x<=19;x+=6)block(1.5,.025,.12,x,-.018,0,M.curb);
+for(let i=0;i<18;i++){let x=-20+Math.random()*40,z=(Math.random()-.5)*6.3;block(.35+Math.random()*1.35,.012,.2+Math.random()*.55,x,-.012,z,M.patch,(Math.random()-.5)*.8)}
+for(let x=-19;x<=19;x+=6)block(1.5,.025,.12,x,-.008,0,M.curb);
 for(const side of [-1,1]){block(42,.22,3.1,0,-.01,side*5.15,M.side);block(42,.2,.18,0,.06,side*3.58,M.curb);block(42,.11,.22,0,-.04,side*3.42,M.drain);for(let x=-20;x<=20;x+=2.3){block(2.12,.025,1.42,x,.115,side*5.15,M.curb);if(Math.random()>.45)block(.5,.018,.22,x+(Math.random()-.5)*.5,.14,side*5.15,M.dirt)}}
 // Dirt, rubbish and cracks around the footpaths
 for(let i=0;i<26;i++){let x=-20+Math.random()*40,side=Math.random()>.5?1:-1,z=side*(4.2+Math.random()*2.4);block(.15+Math.random()*.4,.015,.12+Math.random()*.35,x,.145,z,M.dirt,(Math.random()-.5))}
@@ -79,17 +70,16 @@ function shack(cx,cz,w=5.0,d=4.5,h=3.0,variant=0){
  }
  // side walls close the shack and make an irregular alley silhouette
  const sideCount=Math.max(2,Math.round(d/1.8));for(const s of [-1,1])for(let i=0;i<sideCount;i++){
-   const z=cz-d/2+(i+.5)*(d/sideCount);addAsset(wallFiles[(i+variant+(s===1?1:2))%wallFiles.length],cx+s*(w/2-.04),0,z,h,s===1?Math.PI/2:-Math.PI/2);
+   const z=cz-d/2+(i+.5)*(d/sideCount);addAsset(wallFiles[(i+variant+(s===1?1:2))%wallFiles.length],cx+s*w/2,0,z,h,s===1?Math.PI/2:-Math.PI/2);
  }
  // back wall
  for(let i=0;i<n;i++){const x=cx-w/2+step*(i+.5);addAsset(wallFiles[(i+variant+2)%wallFiles.length],x,0,cz-front*d/2,h,front===1?Math.PI:0)}
  // roof sheets slightly overhang the walls; mix metal and weathered wooden pieces
- // Atap duduk dekat bibir atas dinding; posisi bawah aset, bukan titik tengah.
-  addAsset(roofFiles[variant%roofFiles.length],cx,h*.93,cz,h*.68,variant%2?Math.PI/2:0);
+ addAsset(roofFiles[variant%roofFiles.length],cx,h*.78,cz,h*.78,variant%2?Math.PI/2:0);
  if(variant%2===0)addAsset('detail-awning-wide.glb',cx,0,cz+front*(d/2+.35),.8,front===1?0:Math.PI);
  // broken boards and dark foundation clutter around front
- // Fondasi tipis dan sedikit di bawah tanah agar tidak menembus panel dinding.
-  block(w+.06,.10,d+.06,cx,-.035,cz,M.wall);obstacle(cx,cz,w*.78,d*.78);
+ // Tidak membuat slab pondasi tambahan: slab yang bertumpuk dengan ubin menyebabkan z-fighting.
+ obstacle(cx,cz,w*.78,d*.78);
  if(variant%2===1){addAsset('wall-b-broken-type-a.glb',cx-w*.35,0,cz+front*(d/2+.15),1.3,0);}
 }
 // Close-packed rows, staggered so the street feels like a cramped settlement rather than a showroom
@@ -109,13 +99,13 @@ for(const side of [-1,1]){
 addAsset('truck-grey.glb',-8.8,0,-.7,2.25,Math.PI/2,[3.8,2.0]);addAsset('truck-green.glb',9.2,0,1.0,2.15,-Math.PI/2,[3.8,2.0]);
 for(let x=-18;x<=18;x+=5.8){if(Math.random()>.5)addAsset('detail-barrier-strong-type-a.glb',x,0,Math.random()>.5?2.8:-2.8,.75,Math.random()*.15,[1.5,.45]);if(Math.random()>.55)addAsset('detail-block.glb',x+.7,0,Math.random()>.5?6.2:-6.2,.6,Math.random()*2)}
 // Extra scrap panels leaned against walls; visible grime streaks without oversized clean boxes
-for(let side of [-1,1])for(let x=-16;x<=16;x+=3.8){if(Math.random()>.58){block(.8+Math.random()*.5,.85,.08,x,.48,side*9.05,Math.random()>.5?M.rust:M.wood,(Math.random()-.5)*.12)}if(Math.random()>.72){block(.55,.45,.5,x+.6,.24,side*6.9,M.dirt);block(.5,.06,.45,x+.6,.5,side*6.9,M.rust)}}
+for(let side of [-1,1])for(let x=-16;x<=16;x+=3.2){if(Math.random()>.45){block(.8+Math.random()*.5,.85,.08,x,.48,side*9.05,Math.random()>.5?M.rust:M.wood,(Math.random()-.5)*.12)}if(Math.random()>.6){block(.55,.45,.5,x+.6,.24,side*6.9,M.dirt);block(.5,.06,.45,x+.6,.5,side*6.9,M.rust)}}
 // KOTA LUAR: jalan penghubung dan distrik yang berjauhan.
 // Label dibuat sebagai papan 3D sederhana agar nama area terbaca tanpa aset tambahan.
 block(8,.16,112,0,-.12,0,M.asphalt);
 block(112,.16,8,0,-.12,0,M.asphalt);
 for(let z=-52;z<=52;z+=5.5) block(.13,.025,1.9,0,-.018,z,M.curb);
-for(let x=-52;x<=52;x+=5.5) block(1.9,.025,.13,x,-.018,0,M.curb);
+for(let x=-52;x<=52;x+=5.5) block(1.9,.025,.13,x,-.008,0,M.curb);
 function signTexture(title,sub,color='#3c3026'){
  const c=document.createElement('canvas');c.width=512;c.height=160;const ctx=c.getContext('2d');
  ctx.fillStyle=color;ctx.fillRect(0,0,512,160);ctx.fillStyle='#d8c39a';ctx.fillRect(7,7,498,146);
@@ -127,21 +117,44 @@ function areaSign(title,sub,x,z,color){
  const postMat=mat('#554435');for(const px of [-1.75,1.75]){const post=new THREE.Mesh(new THREE.BoxGeometry(.14,2.4,.14),postMat);post.position.set(px,1.2,0);g.add(post)}g.position.set(x,0,z);scene.add(g);obstacle(x,z,1.5,.7);
 }
 function simpleBuilding(x,z,w,d,h,wallColor,roofColor,shopName,sub,opts={}){
- const wall=mat(wallColor),roof=mat(roofColor),dark=mat('#302b25'),glass=mat('#42504d');
- block(w,h,d,x,h/2,z,wall);block(w+.35,.22,d+.35,x,h+.1,z,roof);
- // storefront opening / windows on the side facing the nearest road
- const faceZ=z+(z>0?-d/2-.015:d/2+.015);
- if(opts.shop){block(w*.43,h*.34,.035,x,h*.43,faceZ,glass);block(w*.22,h*.27,.045,x-w*.3,h*.36,faceZ,dark);}
- // improvised sheet-metal patching
- for(let i=0;i<Math.floor(w/1.5);i++){if((i+Math.round(x))%3===0)block(.5,.8,.045,x-w/2+.7+i*1.35,.45,faceZ+(z>0?-.04:.04),mat(i%2?'#6c5540':'#7d7a69'));}
- areaSign(shopName,sub,x,z+(z>0?d/2+1.3:-d/2-1.3),'#554331');obstacle(x,z,w*.82,d*.82);
+ // Semua bangunan utama dirakit dari GLB Kenney yang tersedia, bukan kubus bangunan buatan.
+ const front=z>0?-1:1;
+ const wallFiles=['wall-a-flat.glb','wall-a-flat-painted.glb','wall-b-flat.glb','wall-a-flat-window.glb','wall-b-flat-window.glb','wall-a-flat-garage.glb'];
+ const roofFiles=['wall-a-roof.glb','wall-a-roof-detailed.glb','wall-a-roof-slant.glb','wall-b-roof.glb','wall-b-roof-detailed.glb','roof-metal-type-a.glb','roof-metal-type-b.glb'];
+ const variant=Math.abs(Math.round(x*3+z*5))%wallFiles.length;
+ const count=Math.max(2,Math.round(w/1.65));
+ const gap=w/count;
+ // Panel depan-belakang diberi jarak kecil agar permukaan tidak saling bertumpuk.
+ for(let i=0;i<count;i++){
+   const px=x-w/2+gap*(i+.5);
+   const f=(opts.shop&&i===Math.floor(count/2))?'wall-a-door.glb':wallFiles[(i+variant)%wallFiles.length];
+   addAsset(f,px,0,z+front*(d/2+.035),h,front===1?0:Math.PI);
+   addAsset(wallFiles[(i+variant+2)%wallFiles.length],px,0,z-front*(d/2+.035),h,front===1?Math.PI:0);
+ }
+ const sideCount=Math.max(2,Math.round(d/1.7));
+ for(const side of [-1,1])for(let i=0;i<sideCount;i++){
+   const pz=z-d/2+(i+.5)*(d/sideCount);
+   addAsset(wallFiles[(i+variant+(side>0?1:3))%wallFiles.length],x+side*(w/2+.035),0,pz,h,side>0?Math.PI/2:-Math.PI/2);
+ }
+ // Atap seng/atap usang dari paket GLB, sedikit lebih tinggi dari dinding.
+ addAsset(roofFiles[variant%roofFiles.length],x,h*.86,z,h*.82,variant%2?Math.PI/2:0);
+ // Detail kumuh dari asset asli, diletakkan di luar bidang dinding.
+ if(opts.shop){
+   addAsset('detail-awning-small.glb',x,0,z+front*(d/2+.42),.72,front===1?0:Math.PI);
+   if(variant%2===0)addAsset('pallet-small.glb',x-w*.28,0,z+front*(d/2+.8),.38,Math.random()*0.2);
+ }
+ areaSign(shopName,sub,x,z-front*(d/2+1.25),'#554331');
+ obstacle(x,z,w*.78,d*.78);
 }
 function kost(x,z,name,price,variant){
- const colors=[['#777164','#54483a'],['#8b8170','#4b4740'],['#777d70','#514b40'],['#a59b85','#62513c'],['#b5a98e','#65513b']][variant];
- simpleBuilding(x,z,5.8,4.8,variant===0?2.8:3.2,colors[0],colors[1],name,price,{shop:false});
- // window and door details on the facade
- const front=z>0?z-2.43:z+2.43;block(.85,.95,.08,x-1.25,1.05,front,mat('#303b39'));block(.7,1.7,.09,x+.85,.86,front,mat('#46372c'));
- for(let i=0;i<3;i++)block(1.6,.06,.12,x-1.8+i*1.8,.4,front+(z>0?-.08:.08),mat('#9c8b72'));
+ // Kost juga memakai panel dinding, pintu, jendela dan atap GLB dari asset pack.
+ const roofTypes=[0,2,4,1,5];
+ simpleBuilding(x,z,5.8,4.8,variant===0?2.8:3.2,'#777164','#54483a',name,price,{shop:true});
+ // Barang bekas di depan kost, tanpa geometri besar yang bertumpuk dengan lantai.
+ if(variant===0||variant===1){
+   addAsset('detail-dumpster-closed.glb',x-3.4,0,z+.8,.85,0,[.8,.65]);
+   addAsset('detail-bricks-type-b.glb',x+3.2,0,z+1.0,.42,Math.PI/5);
+ }
 }
 // Lima kost tersebar di distrik yang berbeda, tidak bersebelahan.
 kost(-39,-30,'KOST BU SUMI','Rp400 rb / bulan',0);
